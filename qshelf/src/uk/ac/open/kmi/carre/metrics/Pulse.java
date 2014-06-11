@@ -5,7 +5,7 @@ import java.util.Date;
 
 public class Pulse extends Metric {
 
-	protected long pulse;
+	private long pulse;
 	
 	public Pulse(String identifier) {
 		super(identifier);
@@ -17,7 +17,15 @@ public class Pulse extends Metric {
 	
 	@Override
 	protected void initialiseEmpty() {
-		pulse = 0;
+		setPulse(NO_VALUE_PROVIDED);
+	}
+
+	public long getPulse() {
+		return pulse;
+	}
+
+	public void setPulse(long pulse) {
+		this.pulse = pulse;
 	}
 
 }
