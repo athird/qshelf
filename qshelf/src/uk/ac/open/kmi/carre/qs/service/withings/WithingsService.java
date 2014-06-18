@@ -24,7 +24,11 @@ import org.scribe.model.Verifier;
 import org.scribe.oauth.OAuthService;
 
 import uk.ac.open.kmi.carre.metrics.Activity;
+import uk.ac.open.kmi.carre.metrics.BloodPressure;
+import uk.ac.open.kmi.carre.metrics.Height;
 import uk.ac.open.kmi.carre.metrics.Metric;
+import uk.ac.open.kmi.carre.metrics.O2Saturation;
+import uk.ac.open.kmi.carre.metrics.Pulse;
 import uk.ac.open.kmi.carre.metrics.Weight;
 import uk.ac.open.kmi.carre.qs.service.Service;
 
@@ -48,10 +52,11 @@ public class WithingsService extends Service {
 	public static final int SCALE_DEVTYPE = 1;
 	public static final int BP_DEVTYPE = 4;
 	public static final int TRACKER_DEVTYPE = 16;
+	public static final int PULSE_DEVTYPE = BP_DEVTYPE | TRACKER_DEVTYPE;
 
 	public static final int ACTUAL_MEASUREMENT = 1;
 	public static final int GOAL_MEASUREMENT = 2;
-	
+
 	public static final int WEIGHT_MEASUREMENT = 1;
 	public static final int HEIGHT_MEASUREMENT = 4;
 	public static final int LEAN_MASS = 5;
@@ -61,7 +66,7 @@ public class WithingsService extends Service {
 	public static final int SYSTOLIC = 10;
 	public static final int PULSE_RATE = 11;
 	public static final int SPO2 = 54;
-	
+
 	private OAuthService service = null;
 	private String userId = "";
 	private Token accessToken = null;
@@ -69,7 +74,7 @@ public class WithingsService extends Service {
 	public WithingsService(String propertiesPath) {
 		super(propertiesPath);
 	}
-	
+
 	public String createService(HttpServletRequest request, HttpServletResponse response,
 			String callback) {
 		if (service == null) {
@@ -124,7 +129,7 @@ public class WithingsService extends Service {
 			Date date = cal.getTime();
 			Activity activity = getActivity(date);
 			System.err.println(activity.toRDFString());
-			
+
 			Weight weight = getWeight(date);
 			System.err.println(weight.toRDFString());
 			/*String reqURLS = baseURL + "/account?action=getuserslist";//&userid=" + userid;
@@ -152,13 +157,261 @@ public class WithingsService extends Service {
 			serviceRequest.addQuerystringParameter("oauth_timestamp", oauthParams.get("oauth_timestamp"));
 			serviceRequest.addQuerystringParameter("oauth_token", oauthParams.get("oauth_token"));
 			serviceRequest.addQuerystringParameter("oauth_version", oauthParams.get("oauth_version"));
-			 
+
 			Response requestResponse = serviceRequest.send();
 			System.out.println(requestResponse.getBody());*/
 			return "";
 		}
 	}
 
+	public Height getHeight(Date date) {
+		Height height = new Height(machineName, date);
+		Map<String,String> parameters = getDefaultParams("getmeas");
+		/*long dateEpoch = date.getTime();
+		parameters.put("startdate", "" + dateEpoch);
+		parameters.put("enddate", "" + dateEpoch);*/
+		parameters.put("devtype", "" + SCALE_DEVTYPE);
+		parameters.put("category", "" + ACTUAL_MEASUREMENT);
+		parameters.put("limit", "" + 1);
+		String heightRecord = makeApiCall("/measure", parameters);
+		height = parseHeight(height, heightRecord);
+		return height;
+	}
+
+	public Height parseHeight(Height height, String heightString) {
+		JSONObject json = getBodyJson(heightString);
+		if (json == null) {
+			return null;
+		}
+		return parseSingleHeight(height, json);
+	}
+
+	public Height parseSingleHeight(Height height, JSONObject heightJson) {
+		JSONArray measureGroups = (JSONArray) heightJson.get("measuregrps");
+		JSONObject measureGroup = (JSONObject) measureGroups.get(0);
+		height.setId(machineName + (Long) measureGroup.get("grpid"));
+		height.setProvenance(((Long) measureGroup.get("attrib")).intValue());
+		long dateEpoch = (Long) measureGroup.get("date");
+		Date date = new Date(dateEpoch);
+		height.setDate(date);
+		long category = (Long) measureGroup.get("category");
+		if (category == ACTUAL_MEASUREMENT) {
+			height.setActuality(Metric.ACTUALITY_ACTUAL);
+		} else if (category == GOAL_MEASUREMENT) {
+			height.setActuality(Metric.ACTUALITY_GOAL);
+		} else {
+			height.setActuality(Metric.ACTUALITY_ACTUAL);
+		}
+		JSONArray measures = (JSONArray) measureGroup.get("measures");
+		for (int i = 0; i < measures.size(); i++) {
+			JSONObject measure = (JSONObject) measures.get(i);
+			height = parseSingleHeightMeasure(height, measure);
+		}
+		return height;
+	}
+
+	public Height parseSingleHeightMeasure(Height height, JSONObject measureJson) {
+		int type = ((Long) measureJson.get("type")).intValue();
+		long value = (Long) measureJson.get("value");
+		int unit = ((Long) measureJson.get("unit")).intValue();
+		double actualValue = value * Math.pow(10, unit);
+
+		switch (type) {
+		case HEIGHT_MEASUREMENT:
+			height.setHeight(actualValue);
+			break;
+		default:
+			break;
+		}
+
+		return height;
+	}
+	
+	public BloodPressure getBloodPressure(Date date) {
+		BloodPressure bp = new BloodPressure(machineName, date);
+		Map<String,String> parameters = getDefaultParams("getmeas");
+		parameters.put("devtype", "" + BP_DEVTYPE);
+		parameters.put("category", "" + ACTUAL_MEASUREMENT);
+		parameters.put("limit", "" + 1);
+		String bpRecord = makeApiCall("/measure", parameters);
+		bp = parseBp(bp, bpRecord);
+		return bp;
+	}
+
+	public BloodPressure parseBp(BloodPressure bp, String bpString) {
+		JSONObject json = getBodyJson(bpString);
+		if (json == null) {
+			return null;
+		}
+		return parseSingleBp(bp, json);
+	}
+
+	public BloodPressure parseSingleBp(BloodPressure bp, JSONObject bpJson) {
+		JSONArray measureGroups = (JSONArray) bpJson.get("measuregrps");
+		JSONObject measureGroup = (JSONObject) measureGroups.get(0);
+		bp.setId(machineName + (Long) measureGroup.get("grpid"));
+		bp.setProvenance(((Long) measureGroup.get("attrib")).intValue());
+		long dateEpoch = (Long) measureGroup.get("date");
+		Date date = new Date(dateEpoch);
+		bp.setDate(date);
+		long category = (Long) measureGroup.get("category");
+		if (category == ACTUAL_MEASUREMENT) {
+			bp.setActuality(Metric.ACTUALITY_ACTUAL);
+		} else if (category == GOAL_MEASUREMENT) {
+			bp.setActuality(Metric.ACTUALITY_GOAL);
+		} else {
+			bp.setActuality(Metric.ACTUALITY_ACTUAL);
+		}
+		JSONArray measures = (JSONArray) measureGroup.get("measures");
+		for (int i = 0; i < measures.size(); i++) {
+			JSONObject measure = (JSONObject) measures.get(i);
+			bp = parseSingleBPMeasure(bp, measure);
+		}
+		return bp;
+	}
+
+	public BloodPressure parseSingleBPMeasure(BloodPressure bp, JSONObject measureJson) {
+		int type = ((Long) measureJson.get("type")).intValue();
+		long value = (Long) measureJson.get("value");
+		int unit = ((Long) measureJson.get("unit")).intValue();
+		double actualValue = value * Math.pow(10, unit);
+
+		switch (type) {
+		case DIASTOLIC:
+			bp.setDiastolicBloodPressure(new Double(actualValue).longValue());
+			break;
+		case SYSTOLIC:
+			bp.setSystolicBloodPressure(new Double(actualValue).longValue());
+			break;
+		default:
+			break;
+		}
+
+		return bp;
+	}
+
+	public O2Saturation getO2Saturation(Date date) {
+		O2Saturation o2sat = new O2Saturation(machineName, date);
+		Map<String,String> parameters = getDefaultParams("getmeas");
+		parameters.put("devtype", "" + TRACKER_DEVTYPE);
+		parameters.put("category", "" + ACTUAL_MEASUREMENT);
+		parameters.put("limit", "" + 1);
+		String o2Record = makeApiCall("/measure", parameters);
+		o2sat = parseO2Saturation(o2sat, o2Record);
+		return o2sat;
+	}
+
+	public O2Saturation parseO2Saturation(O2Saturation o2sat, String o2String) {
+		JSONObject json = getBodyJson(o2String);
+		if (json == null) {
+			return null;
+		}
+		return parseSingleO2Saturation(o2sat, json);
+	}
+
+	public O2Saturation parseSingleO2Saturation(O2Saturation o2sat, JSONObject o2Json) {
+		JSONArray measureGroups = (JSONArray) o2Json.get("measuregrps");
+		JSONObject measureGroup = (JSONObject) measureGroups.get(0);
+		o2sat.setId(machineName + (Long) measureGroup.get("grpid"));
+		o2sat.setProvenance(((Long) measureGroup.get("attrib")).intValue());
+		long dateEpoch = (Long) measureGroup.get("date");
+		Date date = new Date(dateEpoch);
+		o2sat.setDate(date);
+		long category = (Long) measureGroup.get("category");
+		if (category == ACTUAL_MEASUREMENT) {
+			o2sat.setActuality(Metric.ACTUALITY_ACTUAL);
+		} else if (category == GOAL_MEASUREMENT) {
+			o2sat.setActuality(Metric.ACTUALITY_GOAL);
+		} else {
+			o2sat.setActuality(Metric.ACTUALITY_ACTUAL);
+		}
+		JSONArray measures = (JSONArray) measureGroup.get("measures");
+		for (int i = 0; i < measures.size(); i++) {
+			JSONObject measure = (JSONObject) measures.get(i);
+			o2sat = parseSingleO2SaturationMeasure(o2sat, measure);
+		}
+		return o2sat;
+	}
+
+	public O2Saturation parseSingleO2SaturationMeasure(O2Saturation o2sat, JSONObject measureJson) {
+		int type = ((Long) measureJson.get("type")).intValue();
+		long value = (Long) measureJson.get("value");
+		int unit = ((Long) measureJson.get("unit")).intValue();
+		double actualValue = value * Math.pow(10, unit);
+
+		switch (type) {
+		case SPO2:
+			o2sat.setO2saturation(actualValue);
+			break;
+		default:
+			break;
+		}
+
+		return o2sat;
+	}
+
+
+	public Pulse getPulse(Date date) {
+		Pulse pulse = new Pulse(machineName, date);
+		Map<String,String> parameters = getDefaultParams("getmeas");
+		parameters.put("devtype", "" + PULSE_DEVTYPE);
+		parameters.put("category", "" + ACTUAL_MEASUREMENT);
+		parameters.put("limit", "" + 1);
+		String pulseRecord = makeApiCall("/measure", parameters);
+		pulse = parsePulse(pulse, pulseRecord);
+		return pulse;
+	}
+
+	public Pulse parsePulse(Pulse pulse, String pulseString) {
+		JSONObject json = getBodyJson(pulseString);
+		if (json == null) {
+			return null;
+		}
+		return parseSinglePulse(pulse, json);
+	}
+
+	public Pulse parseSinglePulse(Pulse pulse, JSONObject pulseJson) {
+		JSONArray measureGroups = (JSONArray) pulseJson.get("measuregrps");
+		JSONObject measureGroup = (JSONObject) measureGroups.get(0);
+		pulse.setId(machineName + (Long) measureGroup.get("grpid"));
+		pulse.setProvenance(((Long) measureGroup.get("attrib")).intValue());
+		long dateEpoch = (Long) measureGroup.get("date");
+		Date date = new Date(dateEpoch);
+		pulse.setDate(date);
+		long category = (Long) measureGroup.get("category");
+		if (category == ACTUAL_MEASUREMENT) {
+			pulse.setActuality(Metric.ACTUALITY_ACTUAL);
+		} else if (category == GOAL_MEASUREMENT) {
+			pulse.setActuality(Metric.ACTUALITY_GOAL);
+		} else {
+			pulse.setActuality(Metric.ACTUALITY_ACTUAL);
+		}
+		JSONArray measures = (JSONArray) measureGroup.get("measures");
+		for (int i = 0; i < measures.size(); i++) {
+			JSONObject measure = (JSONObject) measures.get(i);
+			pulse = parseSinglePulseMeasure(pulse, measure);
+		}
+		return pulse;
+	}
+
+	public Pulse parseSinglePulseMeasure(Pulse pulse, JSONObject measureJson) {
+		int type = ((Long) measureJson.get("type")).intValue();
+		long value = (Long) measureJson.get("value");
+		int unit = ((Long) measureJson.get("unit")).intValue();
+		double actualValue = value * Math.pow(10, unit);
+
+		switch (type) {
+		case PULSE_RATE:
+			pulse.setPulse(new Double(actualValue).longValue());
+			break;
+		default:
+			break;
+		}
+
+		return pulse;
+	}
+
+	
 	public Weight getWeight(Date date) {
 		Weight weight = new Weight(machineName, date);
 		Map<String,String> parameters = getDefaultParams("getmeas");
@@ -172,7 +425,7 @@ public class WithingsService extends Service {
 		weight = parseWeight(weight, weightRecord);
 		return weight;
 	}
-	
+
 	public Weight parseWeight(Weight weight, String weightString) {
 		JSONObject json = getBodyJson(weightString);
 		if (json == null) {
@@ -180,7 +433,7 @@ public class WithingsService extends Service {
 		}
 		return parseSingleWeight(weight, json);
 	}
-	
+
 	public Weight parseSingleWeight(Weight weight, JSONObject weightJson) {
 		JSONArray measureGroups = (JSONArray) weightJson.get("measuregrps");
 		JSONObject measureGroup = (JSONObject) measureGroups.get(0);
@@ -204,13 +457,13 @@ public class WithingsService extends Service {
 		}
 		return weight;
 	}
-	
+
 	public Weight parseSingleWeightMeasure(Weight weight, JSONObject measureJson) {
 		int type = ((Long) measureJson.get("type")).intValue();
 		long value = (Long) measureJson.get("value");
 		int unit = ((Long) measureJson.get("unit")).intValue();
 		double actualValue = value * Math.pow(10, unit);
-		
+
 		switch (type) {
 		case WEIGHT_MEASUREMENT:
 			weight.setWeight(actualValue);
@@ -227,10 +480,10 @@ public class WithingsService extends Service {
 		default:
 			break;
 		}
-		
+
 		return weight;
 	}
-	
+
 	public Activity getActivity(Date date) {
 		Activity activity = new Activity(machineName, date);
 		Map<String,String> parameters = getDefaultParams("getactivity");
@@ -241,7 +494,7 @@ public class WithingsService extends Service {
 		System.err.println(activityRecord);
 		return parseActivity(activity, activityRecord);
 	}
-	
+
 	public Activity parseActivity(Activity activity, String activityString) {
 		JSONObject json = getBodyJson(activityString);
 		if (json == null) {
@@ -249,7 +502,7 @@ public class WithingsService extends Service {
 		}
 		return parseSingleActivity(activity, json);
 	}
-	
+
 	public Activity parseSingleActivity(Activity activity, JSONObject activityJson) {
 		activity.setSteps(((Long) activityJson.get("steps")).intValue());
 		activity.setDistance(((Double) activityJson.get("distance")).floatValue());
@@ -270,7 +523,7 @@ public class WithingsService extends Service {
 			serviceRequest.addQuerystringParameter(paramName, 
 					parameters.get(paramName));
 		}
-		
+
 		service.signRequest(accessToken, serviceRequest); 
 
 
@@ -279,7 +532,7 @@ public class WithingsService extends Service {
 		System.err.println(output);
 		return output;
 	}
-	
+
 	private JSONObject getBodyJson(String jsonString) {
 		JSONObject json = (JSONObject) JSONValue.parse(jsonString);
 		long status = (Long) json.get("status");
@@ -289,7 +542,7 @@ public class WithingsService extends Service {
 		JSONObject body = (JSONObject) json.get("body");
 		return body;
 	}
-	
+
 	private Map<String,String> getDefaultParams(String action) {
 		Map<String,String> parameters = new HashMap<String,String>();
 		parameters.put("action", action);
