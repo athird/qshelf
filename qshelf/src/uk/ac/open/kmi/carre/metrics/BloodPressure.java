@@ -4,8 +4,8 @@ import java.util.Date;
 
 public class BloodPressure extends Metric {
 
-	private long systolicBloodPressure;
-	private long diastolicBloodPressure;
+	protected long systolicBloodPressure;
+	protected long diastolicBloodPressure;
 	
 	public BloodPressure(String identifier) {
 		super(identifier);

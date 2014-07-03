@@ -5,9 +5,9 @@ import java.util.Date;
 
 public class Pulse extends Metric {
 
-	private long pulse;
-	private String arrhythmia;
-	private String condition;
+	protected long pulse;
+	protected String arrhythmia;
+	protected String condition;
 	
 	public Pulse(String identifier) {
 		super(identifier);

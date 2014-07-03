@@ -14,7 +14,8 @@ public abstract class Metric {
 	public static final String ACTUALITY_ACTUAL = "<" + RDF_PREFIX + "ActualMeasurement" + ">";
 	public static final String ACTUALITY_GOAL = "<" + RDF_PREFIX + "GoalMeasurement" + ">";
 	public static final String[] IGNORED_FIELDS = {"IGNORED_FIELDS","id", "RDF_PREFIX",
-		"ACTUALITY_GOAL","ACTUALITY_ACTUAL","NO_VALUE_PROVIDED"};
+		"ACTUALITY_GOAL","ACTUALITY_ACTUAL","NO_VALUE_PROVIDED", "REM_SLEEP", "DEEP_SLEEP", 
+		"LIGHT_SLEEP", "ASLEEP", "RESTLESS", "AWAKE" };
 	
 	protected String id;
 	protected Date date;
@@ -106,11 +107,16 @@ public abstract class Metric {
 			allFields.add(field);
 		}
 		for (Field field : allFields) {
-			if (!field.getName().equals("id") &&
-					!field.getName().equals("RDF_PREFIX") &&
-					!field.getName().equals("ACTUALITY_GOAL") &&
-					!field.getName().equals("ACTUALITY_ACTUAL") &&
-					!field.getName().equals("NO_VALUE_PROVIDED")) {
+			boolean ignore = false;
+			for (String ignoreString : IGNORED_FIELDS){
+				if (field.getName().equals(ignoreString)) {
+					ignore = true;
+				}
+				if (ignore) {
+					break;
+				}
+			}
+			if (!ignore) {
 				String triple = obj + " ";
 				
 				String propertyName = RDF_PREFIX + "has" + 

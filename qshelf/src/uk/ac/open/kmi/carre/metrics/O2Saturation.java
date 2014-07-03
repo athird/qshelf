@@ -4,7 +4,7 @@ import java.util.Date;
 
 public class O2Saturation extends Metric {
 
-	private double o2saturation;
+	protected double o2saturation;
 	
 	public O2Saturation(String identifier) {
 		super(identifier);

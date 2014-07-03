@@ -28,8 +28,8 @@ public class DefaultService {
 		try {
 			Class serviceClass = Class.forName("uk.ac.open.kmi.carre.qs.service." + machineName + "." + toUpper + "Service");
 			Constructor<?> constructor = serviceClass.getConstructor(String.class);
-			Service s2 = (Service) constructor.newInstance(propertiesPath);
-			Service service = (Service) serviceClass.newInstance();
+			Service service = (Service) constructor.newInstance(propertiesPath);
+			//Service service = (Service) serviceClass.newInstance();
 			return service;
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block

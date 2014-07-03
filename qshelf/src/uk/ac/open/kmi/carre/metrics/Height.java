@@ -16,7 +16,7 @@ public class Height extends Metric {
 
 	@Override
 	protected void initialiseEmpty() {
-		setHeight(0);
+		setHeight(NO_VALUE_PROVIDED);
 	}
 
 	public double getHeight() {

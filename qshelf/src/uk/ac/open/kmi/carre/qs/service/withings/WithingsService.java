@@ -1,9 +1,11 @@
 package uk.ac.open.kmi.carre.qs.service.withings;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
@@ -29,6 +31,8 @@ import uk.ac.open.kmi.carre.metrics.Height;
 import uk.ac.open.kmi.carre.metrics.Metric;
 import uk.ac.open.kmi.carre.metrics.O2Saturation;
 import uk.ac.open.kmi.carre.metrics.Pulse;
+import uk.ac.open.kmi.carre.metrics.Sleep;
+import uk.ac.open.kmi.carre.metrics.SleepRecord;
 import uk.ac.open.kmi.carre.metrics.Weight;
 import uk.ac.open.kmi.carre.qs.service.Service;
 
@@ -66,6 +70,14 @@ public class WithingsService extends Service {
 	public static final int SYSTOLIC = 10;
 	public static final int PULSE_RATE = 11;
 	public static final int SPO2 = 54;
+
+	public static final int AWAKE = 0;
+	public static final int LIGHT_SLEEP = 1;
+	public static final int DEEP_SLEEP = 2;
+	public static final int REM_SLEEP = 3;
+
+	public static final long SECONDS_PER_DAY = 24 * 60 * 60;
+	private static final long MILLISECONDS_PER_SECOND = 1000;
 
 	private OAuthService service = null;
 	private String userId = "";
@@ -113,63 +125,173 @@ public class WithingsService extends Service {
 		} else {
 			System.err.println("oauthTokenSecret" + oauthTokenSecret);
 			Verifier verifier = new Verifier(oauthTokenSecret);
-			//Token requestToken = new Token(oauthToken, oauthTokenSecret);
 			Token requestToken = new Token((String) request.getSession().getAttribute(machineName + "reqtoken"),
 					(String) request.getSession().getAttribute(machineName + "reqsec"));
 
-			//AbstractMap.SimpleEntry<String,String> useridParameter = new AbstractMap.SimpleEntry<String, String>("userid", userid);
 			accessToken = service.getAccessToken(requestToken, verifier);//, useridParameter);
-
-			//Token accessToken = service.getAccessToken(requestToken, verifier);
 
 			System.err.println("accessToken: " + accessToken.getToken());
 			System.err.println("accessTokenSecret: " + accessToken.getSecret());
-			Calendar cal = Calendar.getInstance(); 
-			cal.set(2014, 04, 28);
-			Date date = cal.getTime();
-			Activity activity = getActivity(date);
-			System.err.println(activity.toRDFString());
+			Calendar cal = Calendar.getInstance();
+			Date today = cal.getTime();
+			//cal.set(2014, 03, 28);
+			cal.clear();
+			cal.set(2014,04,19);
+			Date startDate = cal.getTime();
 
-			Weight weight = getWeight(date);
-			System.err.println(weight.toRDFString());
-			/*String reqURLS = baseURL + "/account?action=getuserslist";//&userid=" + userid;
-			System.err.println(reqURLS);
+			List<Metric> metrics = getMetrics(startDate, today);
 
-			OAuthRequest serviceRequest = new OAuthRequest(Verb.GET, baseURL + "/v2/measure");
-			//serviceRequest.addQuerystringParameter("action", "getmeas");
-			serviceRequest.addQuerystringParameter("action", "getactivity");
-			serviceRequest.addQuerystringParameter("userid", userId);
-			serviceRequest.addQuerystringParameter("startdateymd", "2014-05-01");
-			serviceRequest.addQuerystringParameter("enddateymd", "2014-06-05");
-			//serviceRequest.addQuerystringParameter("devtype", "4");
-			service.signRequest(accessToken, serviceRequest); 
-			System.err.println(serviceRequest.getUrl());
-			System.err.println(serviceRequest.getCompleteUrl());
-			//{"status":0,"body":{"updatetime":1401864300,"measuregrps":[{"grpid":215026954,"attrib":-1,"date":1401259981,"category":1,"comment":"Pre Soylent","measures":[{"value":83,"type":9,"unit":0},{"value":126,"type":10,"unit":0},{"value":86,"type":11,"unit":0}]},{"grpid":214458840,"attrib":-1,"date":1401114679,"category":1,"measures":[{"value":88,"type":9,"unit":0},{"value":127,"type":10,"unit":0},{"value":83,"type":11,"unit":0}]},{"grpid":214420307,"attrib":-1,"date":1401105701,"category":1,"measures":[{"value":89,"type":9,"unit":0},{"value":134,"type":10,"unit":0},{"value":77,"type":11,"unit":0}]},{"grpid":210803657,"attrib":-1,"date":1400142907,"category":1,"measures":[{"value":88,"type":9,"unit":0},{"value":112,"type":10,"unit":0},{"value":93,"type":11,"unit":0}]},{"grpid":210792988,"attrib":-1,"date":1400139180,"category":1,"measures":[{"value":88,"type":9,"unit":0},{"value":129,"type":10,"unit":0},{"value":90,"type":11,"unit":0}]},{"grpid":210584574,"attrib":-1,"date":1400084629,"category":1,"measures":[{"value":84,"type":9,"unit":0},{"value":127,"type":10,"unit":0},{"value":91,"type":11,"unit":0}]},{"grpid":210553622,"attrib":-1,"date":1400068111,"category":1,"measures":[{"value":88,"type":9,"unit":0},{"value":130,"type":10,"unit":0},{"value":79,"type":11,"unit":0}]},{"grpid":210511949,"attrib":2,"date":1400068045,"category":1,"measures":[{"value":178,"type":4,"unit":-2}]}]}}
-			//{"status":0,"body":{"updatetime":1401864426,"measuregrps":[{"grpid":216964980,"attrib":2,"date":1401774912,"category":1,"measures":[{"value":64300,"type":1,"unit":-3},{"value":-1000,"type":18,"unit":-3}]},{"grpid":216953280,"attrib":0,"date":1401744921,"category":1,"measures":[{"value":62,"type":11,"unit":0},{"value":98,"type":54,"unit":0}]},{"grpid":216006429,"attrib":2,"date":1401523301,"category":1,"measures":[{"value":64000,"type":1,"unit":-3},{"value":-1000,"type":18,"unit":-3}]},{"grpid":216094211,"attrib":0,"date":1401522930,"category":1,"measures":[{"value":66,"type":11,"unit":0},{"value":98,"type":54,"unit":0}]},{"grpid":212924304,"attrib":0,"date":1400698827,"category":1,"measures":[{"value":59,"type":11,"unit":0},{"value":98,"type":54,"unit":0}]},{"grpid":212473306,"attrib":0,"date":1400576669,"category":1,"measures":[{"value":82,"type":11,"unit":0},{"value":98,"type":54,"unit":0}]},{"grpid":212473305,"attrib":0,"date":1400576641,"category":1,"measures":[{"value":82,"type":11,"unit":0},{"value":98,"type":54,"unit":0}]},{"grpid":212429166,"attrib":2,"date":1400576575,"category":1,"measures":[{"value":64000,"type":1,"unit":-3},{"value":-1000,"type":18,"unit":-3}]},{"grpid":212429086,"attrib":2,"date":1400576550,"category":1,"measures":[{"value":63500,"type":1,"unit":-3},{"value":-1000,"type":18,"unit":-3}]},{"grpid":212200090,"attrib":0,"date":1400504441,"category":1,"measures":[{"value":77,"type":11,"unit":0},{"value":96,"type":54,"unit":0}]},{"grpid":212200089,"attrib":0,"date":1400504407,"category":1,"measures":[{"value":85,"type":11,"unit":0},{"value":98,"type":54,"unit":0}]},{"grpid":212143598,"attrib":0,"date":1400503008,"category":1,"measures":[{"value":77,"type":11,"unit":0},{"value":98,"type":54,"unit":0}]},{"grpid":212095166,"attrib":2,"date":1400493947,"category":1,"measures":[{"value":1770,"type":4,"unit":-3}]},{"grpid":212095165,"attrib":2,"date":1400493947,"category":1,"measures":[{"value":63500,"type":1,"unit":-3}]}]}}
-			//{"status":0,"body":{"activities":[{"date":"2014-06-02","steps":3496,"distance":2594.65,"calories":127.44,"elevation":48.25,"soft":1980,"moderate":600,"intense":60,"timezone":"Europe\/London"},{"date":"2014-05-22","steps":3771,"distance":2674.35,"calories":143.67,"elevation":71.25,"soft":2880,"moderate":300,"intense":60,"timezone":"Europe\/London"},{"date":"2014-05-23","steps":7052,"distance":5330.57,"calories":269.07,"elevation":124.22,"soft":2700,"moderate":2280,"intense":300,"timezone":"Europe\/Athens"},{"date":"2014-06-03","steps":3781,"distance":2830.69,"calories":151.35,"elevation":80.92,"soft":1740,"moderate":1020,"intense":120,"timezone":"Europe\/London"},{"date":"2014-05-24","steps":3759,"distance":2698.03,"calories":128.19,"elevation":39.54,"soft":1620,"moderate":1020,"intense":60,"timezone":"Europe\/Athens"},{"date":"2014-05-25","steps":4796,"distance":3538.5,"calories":155.3,"elevation":29.38,"soft":1620,"moderate":1680,"intense":0,"timezone":"Europe\/Athens"},{"date":"2014-06-04","steps":6316,"distance":4660.1,"calories":256.28,"elevation":140.75,"soft":2760,"moderate":1440,"intense":240,"timezone":"Europe\/London"},{"date":"2014-05-26","steps":1012,"distance":671.08,"calories":38.73,"elevation":23.16,"soft":660,"moderate":180,"intense":0,"timezone":"Europe\/Athens"},{"date":"2014-05-27","steps":8862,"distance":6016.39,"calories":294.34,"elevation":84.84,"soft":5280,"moderate":1200,"intense":180,"timezone":"Europe\/Athens"},{"date":"2014-06-05","steps":4588,"distance":3401.49,"calories":204.61,"elevation":140.35,"soft":1980,"moderate":1020,"intense":360,"timezone":"Europe\/London"},{"date":"2014-05-19","steps":2914,"distance":2225.1,"calories":98.04,"elevation":21.3,"soft":1200,"moderate":900,"intense":0,"timezone":"Europe\/London"},{"date":"2014-05-20","steps":7508,"distance":5785.43,"calories":266.86,"elevation":89.3,"soft":2700,"moderate":2520,"intense":180,"timezone":"Europe\/London"},{"date":"2014-05-21","steps":5464,"distance":4100.22,"calories":194.44,"elevation":66.51,"soft":2280,"moderate":1260,"intense":180,"timezone":"Europe\/London"},{"date":"2014-05-28","steps":8108,"distance":5982.239,"calories":294.31,"elevation":113.79,"soft":2760,"moderate":2460,"intense":180,"timezone":"Europe\/Athens"},{"date":"2014-05-29","steps":6233,"distance":4493.351,"calories":219.56,"elevation":79.21,"soft":1980,"moderate":2160,"intense":60,"timezone":"Europe\/Athens"},{"date":"2014-05-30","steps":3841,"distance":2830.831,"calories":158.21,"elevation":93.75,"soft":1680,"moderate":840,"intense":240,"timezone":"Europe\/London"},{"date":"2014-05-31","steps":2610,"distance":1873.11,"calories":94.23,"elevation":34.07,"soft":1380,"moderate":240,"intense":60,"timezone":"Europe\/London"},{"date":"2014-06-01","steps":935,"distance":656.48,"calories":43.1,"elevation":32.7,"soft":540,"moderate":120,"intense":60,"timezone":"Europe\/London"}]}}
-
-			//Map<String,String> oauthParams = serviceRequest.getOauthParameters();
-			serviceRequest.addQuerystringParameter("oauth_consumer_key", oauthParams.get("oauth_consumer_key"));
-			serviceRequest.addQuerystringParameter("oauth_nonce", oauthParams.get("oauth_nonce"));
-			serviceRequest.addQuerystringParameter("oauth_signature", oauthParams.get("oauth_signature"));
-			serviceRequest.addQuerystringParameter("oauth_signature_method", oauthParams.get("oauth_signature_method"));
-			serviceRequest.addQuerystringParameter("oauth_timestamp", oauthParams.get("oauth_timestamp"));
-			serviceRequest.addQuerystringParameter("oauth_token", oauthParams.get("oauth_token"));
-			serviceRequest.addQuerystringParameter("oauth_version", oauthParams.get("oauth_version"));
-
-			Response requestResponse = serviceRequest.send();
-			System.out.println(requestResponse.getBody());*/
+			for (Metric metric : metrics) {
+				System.err.println(metric.toRDFString());
+			}
 			return "";
 		}
 	}
 
+	public List<Sleep> getSleepBetween(Date startDate, Date endDate) {
+		List<Sleep> results = new ArrayList<Sleep>();
+		Sleep sleep = new Sleep(machineName, startDate);
+		Map<String,String> parameters = getDefaultParams("get");
+		long dateEpoch = startDate.getTime() / MILLISECONDS_PER_SECOND;
+		long endEpoch = endDate.getTime() / MILLISECONDS_PER_SECOND;
+		parameters.put("startdate", "" + dateEpoch);
+		parameters.put("enddate", "" + endEpoch);
+		String sleepRecord = makeApiCall("/v2/sleep", parameters);
+		sleep = parseSleep(sleep, sleepRecord);
+		List<SleepRecord> dailyRecords = sleep.getSleepRecords();
+		List<SleepRecord> currentDailyRecords = new ArrayList<SleepRecord>();
+		String currentDate = DateFormatUtils.format(startDate, "yyyy-MM-dd");
+		for (SleepRecord record : dailyRecords) {
+			String timestamp = DateFormatUtils.format(record.getStartDate(), "yyyy-MM-dd");
+			if (timestamp.equals(currentDate)) {
+				currentDailyRecords.add(record);
+			} else {
+				sleep.setSleepRecords(currentDailyRecords);
+				results.add(sleep);
+				sleep = new Sleep(machineName, record.getStartDate());
+				currentDailyRecords = new ArrayList<SleepRecord>();
+				currentDate = timestamp;
+				currentDailyRecords.add(record);
+			}
+		}
+		sleep.setSleepRecords(currentDailyRecords);
+		sleep = computeSleepSummaries(sleep);
+		results.add(sleep);
+		return results;
+	}
+
+	@Override
+	public Sleep getSleep(Date date) {
+		Sleep sleep = new Sleep(machineName, date);
+		Map<String,String> parameters = getDefaultParams("get");
+		long dateEpoch = date.getTime() / MILLISECONDS_PER_SECOND;
+		long nextDay = dateEpoch + SECONDS_PER_DAY;
+		parameters.put("startdate", "" + dateEpoch);
+		parameters.put("enddate", "" + nextDay);
+		String sleepRecord = makeApiCall("/v2/sleep", parameters);
+		sleep = parseSleep(sleep, sleepRecord);
+		return sleep;
+	}
+
+
+	public Sleep parseSleep(Sleep sleep, String sleepString) {
+		JSONObject json = getBodyJson(sleepString);
+		if (json == null || json.keySet() == null || json.keySet().size() == 0) {
+			return sleep;
+		}
+		return parseSingleSleep(sleep, json);
+	}
+
+
+	public Sleep parseSingleSleep(Sleep sleep, JSONObject sleepJson) {
+		JSONArray series = (JSONArray) sleepJson.get("series");
+		for (int i = 0; i < series.size(); i++) {
+			JSONObject sleepRecordJson = (JSONObject) series.get(i);
+			SleepRecord sleepRecord = parseSleepRecord(sleep.getDate(), sleepRecordJson);
+			sleep.addSleepRecord(sleepRecord);
+		}
+		return sleep;
+	}
+
+	public SleepRecord parseSleepRecord(Date date, JSONObject sleepJson) {
+		long startTime = (Long) sleepJson.get("startdate");
+		int sleepStatus = ((Long) sleepJson.get("state")).intValue();;
+		long endTime = (Long) sleepJson.get("enddate");
+		SleepRecord sleepRecord = new SleepRecord(machineName, date);
+		switch(sleepStatus) {
+		case AWAKE:
+			sleepRecord.setSleepStatus(SleepRecord.AWAKE);
+			break;
+		case LIGHT_SLEEP:
+			sleepRecord.setSleepStatus(SleepRecord.LIGHT_SLEEP);
+		case DEEP_SLEEP:
+			sleepRecord.setSleepStatus(SleepRecord.DEEP_SLEEP);
+		case REM_SLEEP:
+			sleepRecord.setSleepStatus(SleepRecord.REM_SLEEP);
+		default:
+			break;
+		}
+
+		Date startDate = new Date(startTime * MILLISECONDS_PER_SECOND);
+		Date endDate = new Date(endTime * MILLISECONDS_PER_SECOND);
+		sleepRecord.setStartDate(startDate);
+		sleepRecord.setEndDate(endDate);
+		return sleepRecord;
+	}
+
+	private Sleep computeSleepSummaries(Sleep sleep) {
+		sleep.setTimesAwake(0);
+		sleep.setTimesLightlyAsleep(0);
+		sleep.setTimesDeeplyAsleep(0);
+		sleep.setTimesRemAsleep(0);
+
+		sleep.setAwakeDuration(0);
+		sleep.setRemDuration(0);
+		sleep.setDeepSleepDuration(0);
+		sleep.setLightSleepDuration(0);
+
+		int lastStatus = -1;
+		
+		long totalSleepTime = 0;
+		for (SleepRecord record : sleep.getSleepRecords()) {
+			
+			long interval = record.getEndDate().getTime() - record.getStartDate().getTime();
+			
+			if (record.getSleepStatus() == AWAKE) {
+				if (lastStatus != AWAKE) {
+					sleep.setTimesAwake(sleep.getTimesAwake() + 1);
+				}
+				sleep.setAwakeDuration(sleep.getAwakeDuration() + interval);
+
+			} else if (record.getSleepStatus() == LIGHT_SLEEP) {
+				if (lastStatus != LIGHT_SLEEP) {
+					sleep.setTimesLightlyAsleep(sleep.getTimesLightlyAsleep() + 1);
+				}
+				sleep.setLightSleepDuration(sleep.getLightSleepDuration() + interval);
+				totalSleepTime += interval;
+			} else if (record.getSleepStatus() == DEEP_SLEEP) {
+				if (lastStatus != DEEP_SLEEP) {
+					sleep.setTimesDeeplyAsleep(sleep.getTimesDeeplyAsleep() + 1);
+				}
+				sleep.setDeepSleepDuration(sleep.getDeepSleepDuration() + interval);
+				totalSleepTime += interval;
+			} else if (record.getSleepStatus() == REM_SLEEP) {
+				if (lastStatus != REM_SLEEP) {
+					sleep.setTimesRemAsleep(sleep.getTimesRemAsleep() + 1);
+				}
+				sleep.setRemDuration(sleep.getRemDuration() + interval);
+				totalSleepTime += interval;
+			}
+			lastStatus = record.getSleepStatus();
+		}
+		sleep.setSleepTime(totalSleepTime);
+		return sleep;
+	}
+
+	@Override
 	public Height getHeight(Date date) {
 		Height height = new Height(machineName, date);
 		Map<String,String> parameters = getDefaultParams("getmeas");
-		/*long dateEpoch = date.getTime();
-		parameters.put("startdate", "" + dateEpoch);
-		parameters.put("enddate", "" + dateEpoch);*/
 		parameters.put("devtype", "" + SCALE_DEVTYPE);
 		parameters.put("category", "" + ACTUAL_MEASUREMENT);
 		parameters.put("limit", "" + 1);
@@ -180,34 +302,37 @@ public class WithingsService extends Service {
 
 	public Height parseHeight(Height height, String heightString) {
 		JSONObject json = getBodyJson(heightString);
-		if (json == null) {
-			return null;
+		if (json == null || json.keySet() == null || json.keySet().size() == 0) {
+			return height;
 		}
 		return parseSingleHeight(height, json);
 	}
 
 	public Height parseSingleHeight(Height height, JSONObject heightJson) {
 		JSONArray measureGroups = (JSONArray) heightJson.get("measuregrps");
-		JSONObject measureGroup = (JSONObject) measureGroups.get(0);
-		height.setId(machineName + (Long) measureGroup.get("grpid"));
-		height.setProvenance(((Long) measureGroup.get("attrib")).intValue());
-		long dateEpoch = (Long) measureGroup.get("date");
-		Date date = new Date(dateEpoch);
-		height.setDate(date);
-		long category = (Long) measureGroup.get("category");
-		if (category == ACTUAL_MEASUREMENT) {
-			height.setActuality(Metric.ACTUALITY_ACTUAL);
-		} else if (category == GOAL_MEASUREMENT) {
-			height.setActuality(Metric.ACTUALITY_GOAL);
-		} else {
-			height.setActuality(Metric.ACTUALITY_ACTUAL);
-		}
-		JSONArray measures = (JSONArray) measureGroup.get("measures");
-		for (int i = 0; i < measures.size(); i++) {
-			JSONObject measure = (JSONObject) measures.get(i);
-			height = parseSingleHeightMeasure(height, measure);
+		if (measureGroups.size() > 0) {
+			JSONObject measureGroup = (JSONObject) measureGroups.get(0);
+			height.setId(machineName + (Long) measureGroup.get("grpid"));
+			height.setProvenance(((Long) measureGroup.get("attrib")).intValue());
+			long dateEpoch = (Long) measureGroup.get("date");
+			Date date = new Date(dateEpoch * MILLISECONDS_PER_SECOND);
+			height.setDate(date);
+			long category = (Long) measureGroup.get("category");
+			if (category == ACTUAL_MEASUREMENT) {
+				height.setActuality(Metric.ACTUALITY_ACTUAL);
+			} else if (category == GOAL_MEASUREMENT) {
+				height.setActuality(Metric.ACTUALITY_GOAL);
+			} else {
+				height.setActuality(Metric.ACTUALITY_ACTUAL);
+			}
+			JSONArray measures = (JSONArray) measureGroup.get("measures");
+			for (int i = 0; i < measures.size(); i++) {
+				JSONObject measure = (JSONObject) measures.get(i);
+				height = parseSingleHeightMeasure(height, measure);
+			}
 		}
 		return height;
+
 	}
 
 	public Height parseSingleHeightMeasure(Height height, JSONObject measureJson) {
@@ -226,7 +351,8 @@ public class WithingsService extends Service {
 
 		return height;
 	}
-	
+
+	@Override
 	public BloodPressure getBloodPressure(Date date) {
 		BloodPressure bp = new BloodPressure(machineName, date);
 		Map<String,String> parameters = getDefaultParams("getmeas");
@@ -240,34 +366,37 @@ public class WithingsService extends Service {
 
 	public BloodPressure parseBp(BloodPressure bp, String bpString) {
 		JSONObject json = getBodyJson(bpString);
-		if (json == null) {
-			return null;
+		if (json == null || json.keySet() == null || json.keySet().size() == 0) {
+			return bp;
 		}
 		return parseSingleBp(bp, json);
 	}
 
 	public BloodPressure parseSingleBp(BloodPressure bp, JSONObject bpJson) {
 		JSONArray measureGroups = (JSONArray) bpJson.get("measuregrps");
-		JSONObject measureGroup = (JSONObject) measureGroups.get(0);
-		bp.setId(machineName + (Long) measureGroup.get("grpid"));
-		bp.setProvenance(((Long) measureGroup.get("attrib")).intValue());
-		long dateEpoch = (Long) measureGroup.get("date");
-		Date date = new Date(dateEpoch);
-		bp.setDate(date);
-		long category = (Long) measureGroup.get("category");
-		if (category == ACTUAL_MEASUREMENT) {
-			bp.setActuality(Metric.ACTUALITY_ACTUAL);
-		} else if (category == GOAL_MEASUREMENT) {
-			bp.setActuality(Metric.ACTUALITY_GOAL);
-		} else {
-			bp.setActuality(Metric.ACTUALITY_ACTUAL);
-		}
-		JSONArray measures = (JSONArray) measureGroup.get("measures");
-		for (int i = 0; i < measures.size(); i++) {
-			JSONObject measure = (JSONObject) measures.get(i);
-			bp = parseSingleBPMeasure(bp, measure);
+		if (measureGroups.size() > 0 ) {
+			JSONObject measureGroup = (JSONObject) measureGroups.get(0);
+			bp.setId(machineName + (Long) measureGroup.get("grpid"));
+			bp.setProvenance(((Long) measureGroup.get("attrib")).intValue());
+			long dateEpoch = (Long) measureGroup.get("date");
+			Date date = new Date(dateEpoch * MILLISECONDS_PER_SECOND);
+			bp.setDate(date);
+			long category = (Long) measureGroup.get("category");
+			if (category == ACTUAL_MEASUREMENT) {
+				bp.setActuality(Metric.ACTUALITY_ACTUAL);
+			} else if (category == GOAL_MEASUREMENT) {
+				bp.setActuality(Metric.ACTUALITY_GOAL);
+			} else {
+				bp.setActuality(Metric.ACTUALITY_ACTUAL);
+			}
+			JSONArray measures = (JSONArray) measureGroup.get("measures");
+			for (int i = 0; i < measures.size(); i++) {
+				JSONObject measure = (JSONObject) measures.get(i);
+				bp = parseSingleBPMeasure(bp, measure);
+			}
 		}
 		return bp;
+
 	}
 
 	public BloodPressure parseSingleBPMeasure(BloodPressure bp, JSONObject measureJson) {
@@ -290,45 +419,50 @@ public class WithingsService extends Service {
 		return bp;
 	}
 
+	@Override
 	public O2Saturation getO2Saturation(Date date) {
 		O2Saturation o2sat = new O2Saturation(machineName, date);
 		Map<String,String> parameters = getDefaultParams("getmeas");
-		parameters.put("devtype", "" + TRACKER_DEVTYPE);
+		//parameters.put("devtype", "" + TRACKER_DEVTYPE);
 		parameters.put("category", "" + ACTUAL_MEASUREMENT);
-		parameters.put("limit", "" + 1);
+		//	parameters.put("limit", "" + 1);
 		String o2Record = makeApiCall("/measure", parameters);
 		o2sat = parseO2Saturation(o2sat, o2Record);
 		return o2sat;
 	}
 
+
+
 	public O2Saturation parseO2Saturation(O2Saturation o2sat, String o2String) {
 		JSONObject json = getBodyJson(o2String);
-		if (json == null) {
-			return null;
+		if (json == null || json.keySet() == null || json.keySet().size() == 0) {
+			return o2sat;
 		}
 		return parseSingleO2Saturation(o2sat, json);
 	}
 
 	public O2Saturation parseSingleO2Saturation(O2Saturation o2sat, JSONObject o2Json) {
 		JSONArray measureGroups = (JSONArray) o2Json.get("measuregrps");
-		JSONObject measureGroup = (JSONObject) measureGroups.get(0);
-		o2sat.setId(machineName + (Long) measureGroup.get("grpid"));
-		o2sat.setProvenance(((Long) measureGroup.get("attrib")).intValue());
-		long dateEpoch = (Long) measureGroup.get("date");
-		Date date = new Date(dateEpoch);
-		o2sat.setDate(date);
-		long category = (Long) measureGroup.get("category");
-		if (category == ACTUAL_MEASUREMENT) {
-			o2sat.setActuality(Metric.ACTUALITY_ACTUAL);
-		} else if (category == GOAL_MEASUREMENT) {
-			o2sat.setActuality(Metric.ACTUALITY_GOAL);
-		} else {
-			o2sat.setActuality(Metric.ACTUALITY_ACTUAL);
-		}
-		JSONArray measures = (JSONArray) measureGroup.get("measures");
-		for (int i = 0; i < measures.size(); i++) {
-			JSONObject measure = (JSONObject) measures.get(i);
-			o2sat = parseSingleO2SaturationMeasure(o2sat, measure);
+		if (measureGroups.size() > 0) {
+			JSONObject measureGroup = (JSONObject) measureGroups.get(0);
+			o2sat.setId(machineName + (Long) measureGroup.get("grpid"));
+			o2sat.setProvenance(((Long) measureGroup.get("attrib")).intValue());
+			long dateEpoch = (Long) measureGroup.get("date");
+			Date date = new Date(dateEpoch * MILLISECONDS_PER_SECOND);
+			o2sat.setDate(date);
+			long category = (Long) measureGroup.get("category");
+			if (category == ACTUAL_MEASUREMENT) {
+				o2sat.setActuality(Metric.ACTUALITY_ACTUAL);
+			} else if (category == GOAL_MEASUREMENT) {
+				o2sat.setActuality(Metric.ACTUALITY_GOAL);
+			} else {
+				o2sat.setActuality(Metric.ACTUALITY_ACTUAL);
+			}
+			JSONArray measures = (JSONArray) measureGroup.get("measures");
+			for (int i = 0; i < measures.size(); i++) {
+				JSONObject measure = (JSONObject) measures.get(i);
+				o2sat = parseSingleO2SaturationMeasure(o2sat, measure);
+			}
 		}
 		return o2sat;
 	}
@@ -350,7 +484,7 @@ public class WithingsService extends Service {
 		return o2sat;
 	}
 
-
+	@Override
 	public Pulse getPulse(Date date) {
 		Pulse pulse = new Pulse(machineName, date);
 		Map<String,String> parameters = getDefaultParams("getmeas");
@@ -364,32 +498,34 @@ public class WithingsService extends Service {
 
 	public Pulse parsePulse(Pulse pulse, String pulseString) {
 		JSONObject json = getBodyJson(pulseString);
-		if (json == null) {
-			return null;
+		if (json == null || json.keySet() == null || json.keySet().size() == 0) {
+			return pulse;
 		}
 		return parseSinglePulse(pulse, json);
 	}
 
 	public Pulse parseSinglePulse(Pulse pulse, JSONObject pulseJson) {
 		JSONArray measureGroups = (JSONArray) pulseJson.get("measuregrps");
-		JSONObject measureGroup = (JSONObject) measureGroups.get(0);
-		pulse.setId(machineName + (Long) measureGroup.get("grpid"));
-		pulse.setProvenance(((Long) measureGroup.get("attrib")).intValue());
-		long dateEpoch = (Long) measureGroup.get("date");
-		Date date = new Date(dateEpoch);
-		pulse.setDate(date);
-		long category = (Long) measureGroup.get("category");
-		if (category == ACTUAL_MEASUREMENT) {
-			pulse.setActuality(Metric.ACTUALITY_ACTUAL);
-		} else if (category == GOAL_MEASUREMENT) {
-			pulse.setActuality(Metric.ACTUALITY_GOAL);
-		} else {
-			pulse.setActuality(Metric.ACTUALITY_ACTUAL);
-		}
-		JSONArray measures = (JSONArray) measureGroup.get("measures");
-		for (int i = 0; i < measures.size(); i++) {
-			JSONObject measure = (JSONObject) measures.get(i);
-			pulse = parseSinglePulseMeasure(pulse, measure);
+		if (measureGroups.size() > 0 ) {
+			JSONObject measureGroup = (JSONObject) measureGroups.get(0);
+			pulse.setId(machineName + (Long) measureGroup.get("grpid"));
+			pulse.setProvenance(((Long) measureGroup.get("attrib")).intValue());
+			long dateEpoch = (Long) measureGroup.get("date");
+			Date date = new Date(dateEpoch * MILLISECONDS_PER_SECOND);
+			pulse.setDate(date);
+			long category = (Long) measureGroup.get("category");
+			if (category == ACTUAL_MEASUREMENT) {
+				pulse.setActuality(Metric.ACTUALITY_ACTUAL);
+			} else if (category == GOAL_MEASUREMENT) {
+				pulse.setActuality(Metric.ACTUALITY_GOAL);
+			} else {
+				pulse.setActuality(Metric.ACTUALITY_ACTUAL);
+			}
+			JSONArray measures = (JSONArray) measureGroup.get("measures");
+			for (int i = 0; i < measures.size(); i++) {
+				JSONObject measure = (JSONObject) measures.get(i);
+				pulse = parseSinglePulseMeasure(pulse, measure);
+			}
 		}
 		return pulse;
 	}
@@ -411,13 +547,10 @@ public class WithingsService extends Service {
 		return pulse;
 	}
 
-	
+	@Override
 	public Weight getWeight(Date date) {
 		Weight weight = new Weight(machineName, date);
 		Map<String,String> parameters = getDefaultParams("getmeas");
-		/*long dateEpoch = date.getTime();
-		parameters.put("startdate", "" + dateEpoch);
-		parameters.put("enddate", "" + dateEpoch);*/
 		parameters.put("devtype", "" + SCALE_DEVTYPE);
 		parameters.put("category", "" + ACTUAL_MEASUREMENT);
 		parameters.put("limit", "" + 1);
@@ -428,32 +561,34 @@ public class WithingsService extends Service {
 
 	public Weight parseWeight(Weight weight, String weightString) {
 		JSONObject json = getBodyJson(weightString);
-		if (json == null) {
-			return null;
+		if (json == null || json.keySet() == null || json.keySet().size() == 0) {
+			return weight;
 		}
 		return parseSingleWeight(weight, json);
 	}
 
 	public Weight parseSingleWeight(Weight weight, JSONObject weightJson) {
 		JSONArray measureGroups = (JSONArray) weightJson.get("measuregrps");
-		JSONObject measureGroup = (JSONObject) measureGroups.get(0);
-		weight.setId(machineName + (Long) measureGroup.get("grpid"));
-		weight.setProvenance(((Long) measureGroup.get("attrib")).intValue());
-		long dateEpoch = (Long) measureGroup.get("date");
-		Date date = new Date(dateEpoch);
-		weight.setDate(date);
-		long category = (Long) measureGroup.get("category");
-		if (category == ACTUAL_MEASUREMENT) {
-			weight.setActuality(Metric.ACTUALITY_ACTUAL);
-		} else if (category == GOAL_MEASUREMENT) {
-			weight.setActuality(Metric.ACTUALITY_GOAL);
-		} else {
-			weight.setActuality(Metric.ACTUALITY_ACTUAL);
-		}
-		JSONArray measures = (JSONArray) measureGroup.get("measures");
-		for (int i = 0; i < measures.size(); i++) {
-			JSONObject measure = (JSONObject) measures.get(i);
-			weight = parseSingleWeightMeasure(weight, measure);
+		if (measureGroups.size() > 0) {
+			JSONObject measureGroup = (JSONObject) measureGroups.get(0);
+			weight.setId(machineName + (Long) measureGroup.get("grpid"));
+			weight.setProvenance(((Long) measureGroup.get("attrib")).intValue());
+			long dateEpoch = (Long) measureGroup.get("date");
+			Date date = new Date(dateEpoch * MILLISECONDS_PER_SECOND);
+			weight.setDate(date);
+			long category = (Long) measureGroup.get("category");
+			if (category == ACTUAL_MEASUREMENT) {
+				weight.setActuality(Metric.ACTUALITY_ACTUAL);
+			} else if (category == GOAL_MEASUREMENT) {
+				weight.setActuality(Metric.ACTUALITY_GOAL);
+			} else {
+				weight.setActuality(Metric.ACTUALITY_ACTUAL);
+			}
+			JSONArray measures = (JSONArray) measureGroup.get("measures");
+			for (int i = 0; i < measures.size(); i++) {
+				JSONObject measure = (JSONObject) measures.get(i);
+				weight = parseSingleWeightMeasure(weight, measure);
+			}
 		}
 		return weight;
 	}
@@ -484,6 +619,225 @@ public class WithingsService extends Service {
 		return weight;
 	}
 
+	@Override
+	public List<Metric> getMetrics(Date startDate, Date endDate) {
+		List<Metric> results = new ArrayList<Metric>();
+		Map<String, String> parameters = getDefaultParams("getmeas");
+		System.err.println(DateFormatUtils.format(startDate, "yyyy-MM-dd"));
+		System.err.println(DateFormatUtils.format(endDate, "yyyy-MM-dd"));
+		parameters.put("startdate", "" + (startDate.getTime()/MILLISECONDS_PER_SECOND));
+		parameters.put("enddate", "" + (endDate.getTime()/MILLISECONDS_PER_SECOND));
+		parameters.put("category", "" + ACTUAL_MEASUREMENT);
+		parameters.put("lastupdate", "" + (startDate.getTime()/MILLISECONDS_PER_SECOND));
+		String metricRecord = makeApiCall("/measure", parameters);
+		results = parseMetrics(results, metricRecord);
+
+		Date backupStart = new Date(startDate.getTime());
+		Date backupEnd = new Date(endDate.getTime());
+
+		results.addAll(getActivityBetween(startDate, endDate));
+		results.addAll(getSleepBetween(backupStart, backupEnd));
+		return results;
+	}
+
+	public List<Metric> parseMetrics(List<Metric> results, String jsonString) {
+		JSONObject json = getBodyJson(jsonString);
+		if (json == null || json.keySet() == null || json.keySet().size() == 0) {
+			return results;
+		}
+		JSONArray measureGroups = (JSONArray) json.get("measuregrps");
+		for (int i = 0; i < measureGroups.size(); i++) {		
+			JSONObject measureGroup = (JSONObject) measureGroups.get(i);
+			String id = machineName + (Long) measureGroup.get("grpid");
+			int provenance = ((Long) measureGroup.get("attrib")).intValue();
+			long dateEpoch = (Long) measureGroup.get("date");
+			Date date = new Date(dateEpoch * MILLISECONDS_PER_SECOND);
+			long category = (Long) measureGroup.get("category");
+			String actuality = "";
+			if (category == ACTUAL_MEASUREMENT) {
+				actuality = Metric.ACTUALITY_ACTUAL;
+			} else if (category == GOAL_MEASUREMENT) {
+				actuality = Metric.ACTUALITY_GOAL;
+			} else {
+				actuality = Metric.ACTUALITY_ACTUAL;
+			}
+			JSONArray measures = (JSONArray) measureGroup.get("measures");
+
+
+			List<Metric> measureGroupResults = new ArrayList<Metric>();
+
+			for (int j = 0; j < measures.size(); j++) {
+				JSONObject measure = (JSONObject) measures.get(j);
+				measureGroupResults = parseSingleMetric(measureGroupResults, date, id, measure);
+
+			}
+			for (Metric metric : measureGroupResults) {
+				metric.setActuality(actuality);
+				metric.setProvenance(provenance);
+			}
+			results.addAll(measureGroupResults);
+		}
+		return results;
+	}
+
+	public List<Metric> parseSingleMetric(List<Metric> results, Date date, String id, JSONObject measureJson) {
+		int type = ((Long) measureJson.get("type")).intValue();
+		long value = (Long) measureJson.get("value");
+		int unit = ((Long) measureJson.get("unit")).intValue();
+		double actualValue = value * Math.pow(10, unit);
+
+		switch (type) {
+		case HEIGHT_MEASUREMENT:
+			Height height = new Height(id, date);
+			height.setId(id);
+			height.setHeight(actualValue);
+			results.add(height);
+			break;
+		case DIASTOLIC:
+			boolean foundExisting = false;
+			for (Metric metric : results) {
+				if (metric instanceof BloodPressure) {
+					BloodPressure bp = (BloodPressure) metric;
+					if (bp.getDiastolicBloodPressure() == Metric.NO_VALUE_PROVIDED 
+							&& bp.getId().equals(id)) {
+						bp.setDiastolicBloodPressure(new Double(actualValue).longValue());
+						foundExisting = true;
+					}
+				}
+			}
+			if (!foundExisting) {
+				BloodPressure bp = new BloodPressure(id, date);
+				bp.setId(id);
+				bp.setDiastolicBloodPressure(new Double(actualValue).longValue());
+				results.add(bp);
+			}
+			break;
+		case SYSTOLIC:
+			foundExisting = false;
+			for (Metric metric : results) {
+				if (metric instanceof BloodPressure) {
+					BloodPressure bp = (BloodPressure) metric;
+					if (bp.getSystolicBloodPressure() == Metric.NO_VALUE_PROVIDED
+							&& bp.getId().equals(id)) {
+						bp.setSystolicBloodPressure(new Double(actualValue).longValue());
+						foundExisting = true;
+					}
+				}
+			}
+			if (!foundExisting) {
+				BloodPressure bp = new BloodPressure(id, date);
+				bp.setId(id);
+				bp.setSystolicBloodPressure(new Double(actualValue).longValue());
+				results.add(bp);
+			}
+			break;
+		case SPO2:
+			O2Saturation o2sat = new O2Saturation(id, date);
+			o2sat.setO2saturation(actualValue);
+			results.add(o2sat);
+			break;
+		case PULSE_RATE:
+			Pulse pulse = new Pulse(id, date);
+			pulse.setPulse(new Double(actualValue).longValue());
+			results.add(pulse);
+			break;
+		case WEIGHT_MEASUREMENT:
+			foundExisting = false;
+			for (Metric metric : results) {
+				if (metric instanceof Weight) {
+					Weight weight = (Weight) metric;
+					if (weight.getWeight() == Metric.NO_VALUE_PROVIDED
+							&& weight.getId().equals(id)) {
+						weight.setWeight(actualValue);
+						foundExisting = true;
+					}
+				}
+			}
+			if (!foundExisting) {
+				Weight weight = new Weight(id, date);
+				weight.setId(id);
+				weight.setWeight(actualValue);
+				results.add(weight);
+			}
+			break;
+		case LEAN_MASS:
+			foundExisting = false;
+			for (Metric metric : results) {
+				if (metric instanceof Weight) {
+					Weight weight = (Weight) metric;
+					if (weight.getLeanMass() == Metric.NO_VALUE_PROVIDED 
+							&& weight.getId().equals(id)) {
+						weight.setLeanMass(actualValue);
+						foundExisting = true;
+					}
+				}
+			}
+			if (!foundExisting) {
+				Weight weight = new Weight(id, date);
+				weight.setId(id);
+				weight.setLeanMass(actualValue);
+				results.add(weight);
+			}
+			break;
+		case FAT_PERCENTAGE:
+			foundExisting = false;
+			for (Metric metric : results) {
+				if (metric instanceof Weight) {
+					Weight weight = (Weight) metric;
+					if (weight.getBodyFat() == Metric.NO_VALUE_PROVIDED
+							&& weight.getId().equals(id)) {
+						weight.setBodyFat(actualValue);
+						foundExisting = true;
+					}
+				}
+			}
+			if (!foundExisting) {
+				Weight weight = new Weight(id, date);
+				weight.setId(id);
+				weight.setBodyFat(actualValue);
+				results.add(weight);
+			}
+			break;
+		case FAT_MASS:
+			foundExisting = false;
+			for (Metric metric : results) {
+				if (metric instanceof Weight) {
+					Weight weight = (Weight) metric;
+					if (weight.getFatMass() == Metric.NO_VALUE_PROVIDED
+							&& weight.getId().equals(id)) {
+						weight.setFatMass(actualValue);
+						foundExisting = true;
+					}
+				}
+			}
+			if (!foundExisting) {
+				Weight weight = new Weight(id, date);
+				weight.setId(id);
+				weight.setFatMass(actualValue);
+				results.add(weight);
+			}
+			break;
+		default:
+			break;
+		}
+		return results;
+	}
+
+	public List<Activity> getActivityBetween(Date startDate, Date endDate) {
+		List<Activity> results = new ArrayList<Activity>();
+		String endDateString = DateFormatUtils.format(endDate, "yyyy-MM-dd");
+		String dateString = DateFormatUtils.format(startDate, "yyyy-MM-dd");
+		Date date = startDate;
+		while(!dateString.equals(endDateString)) {
+			Activity activity = getActivity(date);
+			results.add(activity);
+			date.setTime(date.getTime() + (SECONDS_PER_DAY * MILLISECONDS_PER_SECOND));
+			dateString = DateFormatUtils.format(date, "yyyy-MM-dd");
+		}
+		return results;
+	}
+
+	@Override
 	public Activity getActivity(Date date) {
 		Activity activity = new Activity(machineName, date);
 		Map<String,String> parameters = getDefaultParams("getactivity");
@@ -497,17 +851,29 @@ public class WithingsService extends Service {
 
 	public Activity parseActivity(Activity activity, String activityString) {
 		JSONObject json = getBodyJson(activityString);
-		if (json == null) {
-			return null;
+		if (json == null || json.keySet() == null || json.keySet().size() == 0) {
+			return activity;
 		}
 		return parseSingleActivity(activity, json);
 	}
 
 	public Activity parseSingleActivity(Activity activity, JSONObject activityJson) {
 		activity.setSteps(((Long) activityJson.get("steps")).intValue());
-		activity.setDistance(((Double) activityJson.get("distance")).floatValue());
-		activity.setCalories(((Double) activityJson.get("calories")).floatValue());
-		activity.setElevation(((Double) activityJson.get("elevation")).floatValue());
+		try {
+			activity.setDistance(((Double) activityJson.get("distance")).floatValue());
+		} catch(ClassCastException e) {
+			activity.setDistance(0);
+		}
+		try {
+			activity.setCalories(((Double) activityJson.get("calories")).floatValue());
+		} catch (ClassCastException e) {
+			activity.setCalories(0);
+		}
+		try {
+			activity.setElevation(((Double) activityJson.get("elevation")).floatValue());
+		} catch (ClassCastException e) {
+			activity.setElevation(0);
+		}
 		activity.setLightActivityDuration(((Long) activityJson.get("soft")).intValue());
 		activity.setModerateActivityDuration(((Long) activityJson.get("moderate")).intValue());
 		activity.setIntenseActivityDuration(((Long) activityJson.get("intense")).intValue());
@@ -519,10 +885,15 @@ public class WithingsService extends Service {
 		OAuthRequest serviceRequest = new OAuthRequest(HTTP_METHOD, 
 				baseURL + apiMethod);
 
+		System.err.println(baseURL + apiMethod);
+
 		for (String paramName : parameters.keySet()) {
+			System.err.println(paramName + "=" + parameters.get(paramName));
 			serviceRequest.addQuerystringParameter(paramName, 
 					parameters.get(paramName));
 		}
+
+
 
 		service.signRequest(accessToken, serviceRequest); 
 
