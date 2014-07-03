@@ -72,16 +72,6 @@ public abstract class Service {
 		}
 	}
 	
-	public List<Metric> getMetrics(Date startDate, Date endDate) {
-		return new ArrayList<Metric>();
-	}
-
-	public abstract Sleep getSleep(Date date);
-	public abstract Height getHeight(Date date);
-	public abstract BloodPressure getBloodPressure(Date date);
-	public abstract O2Saturation getO2Saturation(Date date);
-	public abstract Pulse getPulse(Date date);
-	public abstract Weight getWeight(Date date);
-	public abstract Activity getActivity(Date date);
+	public abstract List<Metric> getMetrics(Date startDate, Date endDate);
 
 }

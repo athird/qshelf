@@ -7,6 +7,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.Date;
+import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -20,6 +21,7 @@ import org.scribe.oauth.OAuthService;
 import uk.ac.open.kmi.carre.metrics.Activity;
 import uk.ac.open.kmi.carre.metrics.BloodPressure;
 import uk.ac.open.kmi.carre.metrics.Height;
+import uk.ac.open.kmi.carre.metrics.Metric;
 import uk.ac.open.kmi.carre.metrics.O2Saturation;
 import uk.ac.open.kmi.carre.metrics.Pulse;
 import uk.ac.open.kmi.carre.metrics.Sleep;
@@ -111,39 +113,12 @@ public class IHealthService extends Service {
 
 		return token;
 	}
+
+	@Override
+	public List<Metric> getMetrics(Date startDate, Date endDate) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 	
-	@Override
-	public Sleep getSleep(Date date) {
-		return null;
-	}
 
-	@Override
-	public Height getHeight(Date date) {
-		return null;
-	}
-
-	@Override
-	public BloodPressure getBloodPressure(Date date) {
-		return null;
-	}
-
-	@Override
-	public O2Saturation getO2Saturation(Date date) {
-		return null;
-	}
-
-	@Override
-	public Pulse getPulse(Date date) {
-		return null;
-	}
-
-	@Override
-	public Weight getWeight(Date date) {
-		return null;
-	}
-
-	@Override
-	public Activity getActivity(Date date) {
-		return null;
-	}
 }
