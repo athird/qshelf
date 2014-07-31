@@ -15,15 +15,21 @@ public class Activity extends Metric {
 	protected float calories;
 	protected float caloriesBMR;
 	protected float activityCalories;
+	protected float marginalCalories;
 	protected float elevation;
 	protected int floors;
 	protected int sedentaryActivityDuration;
 	protected int lightActivityDuration;
 	protected int moderateActivityDuration;
 	protected int intenseActivityDuration;
+	protected float sedentaryActivityDistance;
+	protected float lightActivityDistance;
+	protected float moderateActivityDistance;
+	protected float intenseActivityDistance;
+	protected float loggedActivityDistance;
+	protected float trackedActivityDistance;
 	protected float latitude;
 	protected float longitude;
-	protected String note;
 	protected String timezone;
 
 	public Activity(String identifier) {
@@ -40,12 +46,18 @@ public class Activity extends Metric {
 		setCalories(NO_VALUE_PROVIDED);
 		setCaloriesBMR(NO_VALUE_PROVIDED);
 		setActivityCalories(NO_VALUE_PROVIDED);
+		setMarginalCalories(NO_VALUE_PROVIDED);
 		setElevation(NO_VALUE_PROVIDED);
 		setFloors(NO_VALUE_PROVIDED);
 		setSedentaryActivityDuration(NO_VALUE_PROVIDED);
 		setLightActivityDuration(NO_VALUE_PROVIDED);
 		setModerateActivityDuration(NO_VALUE_PROVIDED);
 		setIntenseActivityDuration(NO_VALUE_PROVIDED);
+		setSedentaryActivityDistance(NO_VALUE_PROVIDED);
+		setLightActivityDistance(NO_VALUE_PROVIDED);
+		setModerateActivityDistance(NO_VALUE_PROVIDED);
+		setIntenseActivityDistance(NO_VALUE_PROVIDED);
+		setTrackedActivityDistance(NO_VALUE_PROVIDED);
 		setLatitude(NO_VALUE_PROVIDED);
 		setLongitude(NO_VALUE_PROVIDED);
 		setNote("");
@@ -109,6 +121,14 @@ public class Activity extends Metric {
 		this.activityCalories = activityCalories;
 	}
 
+	public float getMarginalCalories() {
+		return marginalCalories;
+	}
+
+	public void setMarginalCalories(float marginalCalories) {
+		this.marginalCalories = marginalCalories;
+	}
+
 	public float getElevation() {
 		return elevation;
 	}
@@ -157,6 +177,54 @@ public class Activity extends Metric {
 		this.intenseActivityDuration = intenseActivityDuration;
 	}
 
+	public float getSedentaryActivityDistance() {
+		return sedentaryActivityDistance;
+	}
+
+	public void setSedentaryActivityDistance(float sedentaryActivityDistance) {
+		this.sedentaryActivityDistance = sedentaryActivityDistance;
+	}
+
+	public float getLightActivityDistance() {
+		return lightActivityDistance;
+	}
+
+	public void setLightActivityDistance(float lightActivityDistance) {
+		this.lightActivityDistance = lightActivityDistance;
+	}
+
+	public float getModerateActivityDistance() {
+		return moderateActivityDistance;
+	}
+
+	public void setModerateActivityDistance(float moderateActivityDistance) {
+		this.moderateActivityDistance = moderateActivityDistance;
+	}
+
+	public float getIntenseActivityDistance() {
+		return intenseActivityDistance;
+	}
+
+	public void setIntenseActivityDistance(float intenseActivityDistance) {
+		this.intenseActivityDistance = intenseActivityDistance;
+	}
+
+	public float getLoggedActivityDistance() {
+		return loggedActivityDistance;
+	}
+
+	public void setLoggedActivityDistance(float loggedActivityDistance) {
+		this.loggedActivityDistance = loggedActivityDistance;
+	}
+
+	public float getTrackedActivityDistance() {
+		return trackedActivityDistance;
+	}
+
+	public void setTrackedActivityDistance(float trackedActivityDistance) {
+		this.trackedActivityDistance = trackedActivityDistance;
+	}
+
 	public float getLatitude() {
 		return latitude;
 	}
@@ -171,14 +239,6 @@ public class Activity extends Metric {
 
 	public void setLongitude(float longitude) {
 		this.longitude = longitude;
-	}
-
-	public String getNote() {
-		return note;
-	}
-
-	public void setNote(String note) {
-		this.note = note;
 	}
 	
 	public String getTimezone() {

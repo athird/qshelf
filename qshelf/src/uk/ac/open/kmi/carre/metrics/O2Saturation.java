@@ -17,6 +17,7 @@ public class O2Saturation extends Metric {
 	@Override
 	protected void initialiseEmpty() {
 		setO2saturation(NO_VALUE_PROVIDED);
+		setNote("");
 	}
 
 	public double getO2saturation() {

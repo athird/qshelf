@@ -68,17 +68,20 @@ public class CarreQS extends HttpServlet {
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		 
-		
+
+
 		String pathInfo = request.getPathInfo();
-		Service currentService = DefaultService.getDefaultService(
-				getServletContext().getRealPath("/WEB-INF/config.properties"));
+		Service currentService = null;//DefaultService.getDefaultService(
+		//getServletContext().getRealPath("/WEB-INF/config.properties"));
 		if (pathInfo != null && !(pathInfo.equals(""))) {
 			pathInfo = pathInfo.replaceAll("/", "");
 			currentService = DefaultService.getServiceWithMachineName(pathInfo, 
 					getServletContext().getRealPath("/WEB-INF/config.properties"));
 		} else {
 			pathInfo = "";
+			currentService = DefaultService.getDefaultService(
+					getServletContext().getRealPath("/WEB-INF/config.properties"));
+
 		}
 
 		String url = currentService.createService(request, response, 
@@ -86,7 +89,7 @@ public class CarreQS extends HttpServlet {
 		if (url != null && !url.equals("")) {
 			response.sendRedirect(url);
 		}
-		
+
 	}
 
 	/**
@@ -95,7 +98,7 @@ public class CarreQS extends HttpServlet {
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		// TODO Auto-generated method stub
 	}
-	
+
 
 
 }

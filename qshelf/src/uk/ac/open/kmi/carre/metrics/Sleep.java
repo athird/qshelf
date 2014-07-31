@@ -21,6 +21,7 @@ public class Sleep extends Metric {
 	protected long remDuration;
 	protected long deepSleepDuration;
 	protected long lightSleepDuration;
+	protected long minutesAfterWakeup;
 	protected Date morningTime;
 	
 	public Sleep(String identifier) {
@@ -48,7 +49,9 @@ public class Sleep extends Metric {
 		remDuration = NO_VALUE_PROVIDED;
 		setDeepSleepDuration(NO_VALUE_PROVIDED);
 		lightSleepDuration = NO_VALUE_PROVIDED;
+		minutesAfterWakeup = NO_VALUE_PROVIDED;
 		morningTime = null;
+		setNote("");
 	}
 
 	public long getTimesRemAsleep() {
@@ -173,6 +176,14 @@ public class Sleep extends Metric {
 
 	public void setSleepRecords(List<SleepRecord> sleepRecords) {
 		this.sleepRecords = sleepRecords;
+	}
+	
+	public long getMinutesAfterWakeup() {
+		return minutesAfterWakeup;
+	}
+
+	public void setMinutesAfterWakeup(long minutesAfterWakeup) {
+		this.minutesAfterWakeup = minutesAfterWakeup;
 	}
 
 	@Override

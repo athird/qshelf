@@ -19,6 +19,7 @@ public class BloodPressure extends Metric {
 	protected void initialiseEmpty() {
 		systolicBloodPressure = NO_VALUE_PROVIDED;
 		diastolicBloodPressure = NO_VALUE_PROVIDED;
+		setNote("");
 	}
 
 	public long getSystolicBloodPressure() {

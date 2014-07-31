@@ -22,6 +22,7 @@ public class Pulse extends Metric {
 		setPulse(NO_VALUE_PROVIDED);
 		setHasArrhythmia("");
 		setCondition("");
+		setNote("");
 	}
 
 	public long getPulse() {

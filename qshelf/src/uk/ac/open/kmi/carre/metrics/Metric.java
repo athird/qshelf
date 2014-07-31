@@ -21,6 +21,7 @@ public abstract class Metric {
 	protected Date date;
 	protected String provenance;
 	protected String actuality;
+	protected String note;
 	
 	public Metric(String identifier) {
 		setId(identifier);
@@ -91,6 +92,14 @@ public abstract class Metric {
 
 	public void setActuality(String actuality) {
 		this.actuality = actuality;
+	}
+	
+	public String getNote() {
+		return note;
+	}
+	
+	public void setNote(String note) {
+		this.note = note;
 	}
 
 	public String toRDFString() {

@@ -28,6 +28,7 @@ public class SleepRecord extends Metric {
 		setStartDate(null);
 		setEndDate(null);
 		setSleepStatus(NO_VALUE_PROVIDED);
+		setNote("");
 	}
 
 	public Date getStartDate() {

@@ -29,6 +29,8 @@ public class DefaultService {
 			Class serviceClass = Class.forName("uk.ac.open.kmi.carre.qs.service." + machineName + "." + toUpper + "Service");
 			Constructor<?> constructor = serviceClass.getConstructor(String.class);
 			Service service = (Service) constructor.newInstance(propertiesPath);
+			service.oauth_token = Service.getOAuthToken(propertiesPath, machineName);
+			service.oauth_secret = Service.getOAuthSecret(propertiesPath, machineName);
 			//Service service = (Service) serviceClass.newInstance();
 			return service;
 		} catch (ClassNotFoundException e) {

@@ -17,7 +17,6 @@ public class Weight extends Metric {
 	protected double boneMass;
 	protected double bodyDCI;
 	protected Date lastChangeTime;
-	protected String note;
 	
 	public Weight(String identifier) {
 		super(identifier);
@@ -37,7 +36,7 @@ public class Weight extends Metric {
 		boneMass = NO_VALUE_PROVIDED;
 		bodyDCI = NO_VALUE_PROVIDED;
 		lastChangeTime = null;
-		note = "";
+		setNote("");
 	}
 	
 	
@@ -106,12 +105,6 @@ public class Weight extends Metric {
 	}
 	public void setDate(Date date) {
 		this.date = date;
-	}
-	public String getNote() {
-		return note;
-	}
-	public void setNote(String note) {
-		this.note = note;
 	}
 
 	public double getFatMass() {
