@@ -1,4 +1,4 @@
-package uk.ac.open.kmi.carre.qs.service.ihealth;
+package uk.ac.open.kmi.carre.qs.service.iHealth;
 
 import org.scribe.builder.api.DefaultApi20;
 import org.scribe.model.OAuthConfig;

@@ -25,16 +25,24 @@ import org.scribe.model.Verb;
 import org.scribe.model.Verifier;
 import org.scribe.oauth.OAuthService;
 
-import uk.ac.open.kmi.carre.metrics.Activity;
-import uk.ac.open.kmi.carre.metrics.BloodPressure;
-import uk.ac.open.kmi.carre.metrics.Height;
-import uk.ac.open.kmi.carre.metrics.Metric;
-import uk.ac.open.kmi.carre.metrics.O2Saturation;
-import uk.ac.open.kmi.carre.metrics.Pulse;
-import uk.ac.open.kmi.carre.metrics.Sleep;
-import uk.ac.open.kmi.carre.metrics.SleepRecord;
-import uk.ac.open.kmi.carre.metrics.Weight;
+import com.hp.hpl.jena.query.QuerySolution;
+import com.hp.hpl.jena.query.ResultSet;
+import com.hp.hpl.jena.rdf.model.Literal;
+import com.hp.hpl.jena.rdf.model.Resource;
+
+import uk.ac.open.kmi.carre.qs.metrics.Activity;
+import uk.ac.open.kmi.carre.qs.metrics.BloodPressure;
+import uk.ac.open.kmi.carre.qs.metrics.Height;
+import uk.ac.open.kmi.carre.qs.metrics.Metric;
+import uk.ac.open.kmi.carre.qs.metrics.O2Saturation;
+import uk.ac.open.kmi.carre.qs.metrics.Pulse;
+import uk.ac.open.kmi.carre.qs.metrics.Sleep;
+import uk.ac.open.kmi.carre.qs.metrics.SleepRecord;
+import uk.ac.open.kmi.carre.qs.metrics.Weight;
+import uk.ac.open.kmi.carre.qs.service.RDFAbleToken;
 import uk.ac.open.kmi.carre.qs.service.Service;
+import uk.ac.open.kmi.carre.qs.sparql.CarrePlatformConnector;
+import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
 public class WithingsService extends Service {
 	public static final String name = "Withings API";
@@ -79,12 +87,111 @@ public class WithingsService extends Service {
 	public static final long SECONDS_PER_DAY = 24 * 60 * 60;
 	private static final long MILLISECONDS_PER_SECOND = 1000;
 
+	public static final String RDF_SERVICE_NAME = CARREVocabulary.MANUFACTURER_RDF_PREFIX + "withings";
+
+	public static final String PROVENANCE = RDF_SERVICE_NAME;
+
 	private OAuthService service = null;
 	private String userId = "";
-	private Token accessToken = null;
+	private RDFAbleToken accessToken = null;
 
 	public WithingsService(String propertiesPath) {
 		super(propertiesPath);
+	}
+
+	@Override
+	public void handleNotification(HttpServletRequest request, HttpServletResponse response) {
+		String startDateString = request.getParameter("startdate");
+		String endDateString = request.getParameter("enddate");
+		String useridentifier = request.getParameter("userid");
+		long startTime = Long.parseLong(startDateString);
+		long endTime = Long.parseLong(endDateString);
+		Date startDate = new Date(startTime * MILLISECONDS_PER_SECOND);
+		Date endDate = new Date(endTime * MILLISECONDS_PER_SECOND);
+
+		RDFAbleToken userToken = getTokenForUser(useridentifier);
+		if (userToken != null && !userToken.getUser().equals("")) {
+			RDFAbleToken oldAccessToken = accessToken;
+			accessToken = userToken;
+			String oldUserId = userId;
+			userId = useridentifier;
+			if (service == null) {
+				service = new ServiceBuilder()
+				.provider(WithingsApi.class)
+				.apiKey(oauth_token)
+				.apiSecret(oauth_secret)
+				.signatureType(SignatureType.QueryString)
+				//.build();
+				.callback("")
+				.build();
+			}
+
+			List<Metric> newMetrics = new ArrayList<Metric>();
+			newMetrics.addAll(getMetrics(startDate, endDate));
+
+			String subscriptionId = userToken.getUser()
+					.replaceAll("<" + CARREVocabulary.BASE_URL, "")
+					.replaceAll(">", "");
+
+			String rdf = "";
+			for (Metric metric : newMetrics) {
+				rdf += metric.getMeasuredByRDF(PROVENANCE);
+				rdf += metric.toRDFString();
+			}
+			accessToken = oldAccessToken;
+			userId = oldUserId;
+
+			System.err.println(rdf);
+			if (!rdf.equals("")) {
+				CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
+				boolean success = true;
+				List<String> triples = Service.chunkRDF(rdf);
+				String userId = subscriptionId.substring(CARREVocabulary.USER_URL.length());
+				System.err.println("USERID is " + userId);
+				for (String tripleSet : triples) {
+					success &= connector.insertTriples(userId, tripleSet);
+				}
+				if (!success) {
+					System.err.println("Failed to insert triples.");
+				}
+			}
+		}
+	}
+
+	public RDFAbleToken getTokenForUser(String userId) {
+		CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
+		String sparql = "SELECT ?user ?oauth_token ?oauth_secret WHERE {\n" + 
+				"GRAPH ?user {\n ?connection <"+ CARREVocabulary.HAS_MANUFACTURER + "> "
+				+ RDF_SERVICE_NAME + ".\n " +
+				" ?connection <" + 
+				CARREVocabulary.USER_ID_PREDICATE + "> \"" + userId + "\"" + CARREVocabulary.STRING_TYPE +  " .\n" +
+				" ?connection <" 
+				+ CARREVocabulary.ACCESS_TOKEN_PREDICATE + "> ?oauth_token.\n" +
+				" ?connection <" + 
+				CARREVocabulary.ACCESS_TOKEN_SECRET_PREDICATE + "> ?oauth_secret. }\n}\n";
+		
+		System.err.println(sparql);
+		ResultSet results = connector.executeSPARQL(sparql);
+		while (results.hasNext()) {
+			QuerySolution solution =  results.next();
+			Literal tokenLiteral = solution.getLiteral("oauth_token");
+			Literal secretLiteral = solution.getLiteral("oauth_secret");
+			Resource userResource = solution.getResource("user");
+			if (tokenLiteral == null || secretLiteral == null || userResource == null) {
+				System.err.println("Token, secret literal or user id is null!");
+				return null;
+			}
+			String oauth_token = tokenLiteral.getString();
+			String oauth_secret = secretLiteral.getString();
+			String user = userResource.getURI();
+			System.err.println("token literal is " + oauth_token + 
+					", secret literal is " + oauth_secret + 
+					", user is " + user);
+			RDFAbleToken token = new RDFAbleToken(oauth_token, oauth_secret);
+			token.setUser(user);
+			return token;
+		}
+		return null;
 	}
 
 	public String createService(HttpServletRequest request, HttpServletResponse response,
@@ -128,7 +235,8 @@ public class WithingsService extends Service {
 			Token requestToken = new Token((String) request.getSession().getAttribute(machineName + "reqtoken"),
 					(String) request.getSession().getAttribute(machineName + "reqsec"));
 
-			accessToken = service.getAccessToken(requestToken, verifier);//, useridParameter);
+			Token tmpAccessToken = service.getAccessToken(requestToken, verifier);//, useridParameter);
+			accessToken = new RDFAbleToken(tmpAccessToken.getToken(), tmpAccessToken.getSecret());
 
 			System.err.println("accessToken: " + accessToken.getToken());
 			System.err.println("accessTokenSecret: " + accessToken.getSecret());
@@ -142,6 +250,7 @@ public class WithingsService extends Service {
 			List<Metric> metrics = getMetrics(startDate, today);
 
 			for (Metric metric : metrics) {
+				System.err.println(metric.getMeasuredByRDF(PROVENANCE));
 				System.err.println(metric.toRDFString());
 			}
 			return "";
@@ -249,33 +358,33 @@ public class WithingsService extends Service {
 		sleep.setDeepSleepDuration(0);
 		sleep.setLightSleepDuration(0);
 
-		int lastStatus = -1;
-		
+		String lastStatus = "";
+
 		long totalSleepTime = 0;
 		for (SleepRecord record : sleep.getSleepRecords()) {
-			
+
 			long interval = record.getEndDate().getTime() - record.getStartDate().getTime();
-			
-			if (record.getSleepStatus() == AWAKE) {
-				if (lastStatus != AWAKE) {
+
+			if (record.getSleepStatus() == CARREVocabulary.AWAKE) {
+				if (lastStatus != CARREVocabulary.AWAKE) {
 					sleep.setTimesAwake(sleep.getTimesAwake() + 1);
 				}
 				sleep.setAwakeDuration(sleep.getAwakeDuration() + interval);
 
-			} else if (record.getSleepStatus() == LIGHT_SLEEP) {
-				if (lastStatus != LIGHT_SLEEP) {
+			} else if (record.getSleepStatus() == CARREVocabulary.LIGHT_SLEEP) {
+				if (lastStatus != CARREVocabulary.LIGHT_SLEEP) {
 					sleep.setTimesLightlyAsleep(sleep.getTimesLightlyAsleep() + 1);
 				}
 				sleep.setLightSleepDuration(sleep.getLightSleepDuration() + interval);
 				totalSleepTime += interval;
-			} else if (record.getSleepStatus() == DEEP_SLEEP) {
-				if (lastStatus != DEEP_SLEEP) {
+			} else if (record.getSleepStatus() == CARREVocabulary.DEEP_SLEEP) {
+				if (lastStatus != CARREVocabulary.DEEP_SLEEP) {
 					sleep.setTimesDeeplyAsleep(sleep.getTimesDeeplyAsleep() + 1);
 				}
 				sleep.setDeepSleepDuration(sleep.getDeepSleepDuration() + interval);
 				totalSleepTime += interval;
-			} else if (record.getSleepStatus() == REM_SLEEP) {
-				if (lastStatus != REM_SLEEP) {
+			} else if (record.getSleepStatus() == CARREVocabulary.REM_SLEEP) {
+				if (lastStatus != CARREVocabulary.REM_SLEEP) {
 					sleep.setTimesRemAsleep(sleep.getTimesRemAsleep() + 1);
 				}
 				sleep.setRemDuration(sleep.getRemDuration() + interval);
@@ -587,4 +696,10 @@ public class WithingsService extends Service {
 		parameters.put("userid", userId);
 		return parameters;
 	}
+
+	@Override
+	public String getProvenance() {
+		return PROVENANCE;
+	}
+
 }

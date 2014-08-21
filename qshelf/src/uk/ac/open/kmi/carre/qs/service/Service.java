@@ -10,14 +10,14 @@ import java.util.Properties;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import uk.ac.open.kmi.carre.metrics.Activity;
-import uk.ac.open.kmi.carre.metrics.BloodPressure;
-import uk.ac.open.kmi.carre.metrics.Height;
-import uk.ac.open.kmi.carre.metrics.Metric;
-import uk.ac.open.kmi.carre.metrics.O2Saturation;
-import uk.ac.open.kmi.carre.metrics.Pulse;
-import uk.ac.open.kmi.carre.metrics.Sleep;
-import uk.ac.open.kmi.carre.metrics.Weight;
+import uk.ac.open.kmi.carre.qs.metrics.Activity;
+import uk.ac.open.kmi.carre.qs.metrics.BloodPressure;
+import uk.ac.open.kmi.carre.qs.metrics.Height;
+import uk.ac.open.kmi.carre.qs.metrics.Metric;
+import uk.ac.open.kmi.carre.qs.metrics.O2Saturation;
+import uk.ac.open.kmi.carre.qs.metrics.Pulse;
+import uk.ac.open.kmi.carre.qs.metrics.Sleep;
+import uk.ac.open.kmi.carre.qs.metrics.Weight;
 import uk.ac.open.kmi.carre.qs.service.withings.WithingsService;
 
 public abstract class Service {
@@ -37,9 +37,14 @@ public abstract class Service {
 	public static final String REQUEST_TOKEN_SESSION = WithingsService.REQUEST_TOKEN_SESSION;
 	public static final String ACCESS_TOKEN_SESSION = WithingsService.ACCESS_TOKEN_SESSION;
 
+	public static final int STRING_MAX_LENGTH = 1950;
+	
+	public String propertiesLocation = "";
+	
 	public Service(String propertiesPath) {
 		oauth_token = getOAuthToken(propertiesPath, machineName);
 		oauth_secret = getOAuthSecret(propertiesPath, machineName);
+		propertiesLocation = propertiesPath;
 	}
 
 	public abstract String createService(HttpServletRequest request, HttpServletResponse response,
@@ -74,4 +79,24 @@ public abstract class Service {
 	
 	public abstract List<Metric> getMetrics(Date startDate, Date endDate);
 
+	public abstract void handleNotification(HttpServletRequest request, HttpServletResponse response);
+	
+	public abstract String getProvenance();
+	
+	public static List<String> chunkRDF(String rdf) {
+		List<String> results = new ArrayList<String>();
+		if (rdf.length() < STRING_MAX_LENGTH) {
+			results.add(rdf);
+		} else {
+			while (rdf.length() > STRING_MAX_LENGTH) {
+				String current = rdf.substring(0, STRING_MAX_LENGTH);
+				int lastTripleEndsAt = current.lastIndexOf('.') + 1;
+				current = rdf.substring(0, lastTripleEndsAt);
+				rdf = rdf.substring(lastTripleEndsAt);
+				results.add(current);
+			}
+			results.add(rdf);
+		}
+		return results;
+	}
 }

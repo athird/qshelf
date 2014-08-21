@@ -9,9 +9,18 @@
 		<servlet-name>qshelf</servlet-name>
 		<servlet-class>uk.ac.open.kmi.carre.qs.CarreQS</servlet-class>
 	</servlet>
+	<servlet>
+		<display-name>qshelf-responder</display-name>
+		<servlet-name>qshelf-responder</servlet-name>
+		<servlet-class>uk.ac.open.kmi.carre.qs.QShelfSubscriptions</servlet-class>
+	</servlet>
 	<servlet-mapping>
 		<servlet-name>qshelf</servlet-name>
 		<url-pattern>/shelfie/*</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>qshelf-responder</servlet-name>
+		<url-pattern>/responder/*</url-pattern>
 	</servlet-mapping>
 	
 	<welcome-file-list>

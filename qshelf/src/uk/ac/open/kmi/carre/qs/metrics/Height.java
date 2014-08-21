@@ -1,9 +1,13 @@
-package uk.ac.open.kmi.carre.metrics;
+package uk.ac.open.kmi.carre.qs.metrics;
 
 import java.util.Date;
 
-public class Height extends Metric {
+import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
+public class Height extends Metric {
+	
+	public static final String METRIC_TYPE = CARREVocabulary.HEIGHT_METRIC;
+	
 	protected double height;
 	
 	public Height(String identifier) {
@@ -28,4 +32,8 @@ public class Height extends Metric {
 		this.height = height;
 	}
 
+	public String getMetricType() {
+		return METRIC_TYPE;
+	}
+	
 }

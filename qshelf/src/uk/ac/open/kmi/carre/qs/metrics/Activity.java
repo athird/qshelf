@@ -1,4 +1,4 @@
-package uk.ac.open.kmi.carre.metrics;
+package uk.ac.open.kmi.carre.qs.metrics;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -8,8 +8,12 @@ import java.util.List;
 
 import org.apache.commons.lang.time.DateFormatUtils;
 
+import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
+
 public class Activity extends Metric {
 
+	public static final String METRIC_TYPE = CARREVocabulary.ACTIVITY_METRIC;
+	
 	protected int steps;
 	protected float distance;
 	protected float calories;
@@ -28,8 +32,8 @@ public class Activity extends Metric {
 	protected float intenseActivityDistance;
 	protected float loggedActivityDistance;
 	protected float trackedActivityDistance;
-	protected float latitude;
-	protected float longitude;
+	protected int loggedActivityDuration;
+	protected String loggedActivityName;
 	protected String timezone;
 
 	public Activity(String identifier) {
@@ -58,19 +62,11 @@ public class Activity extends Metric {
 		setModerateActivityDistance(NO_VALUE_PROVIDED);
 		setIntenseActivityDistance(NO_VALUE_PROVIDED);
 		setTrackedActivityDistance(NO_VALUE_PROVIDED);
-		setLatitude(NO_VALUE_PROVIDED);
-		setLongitude(NO_VALUE_PROVIDED);
+		setLoggedActivityDuration(NO_VALUE_PROVIDED);
+		setLoggedActivityName("");
 		setNote("");
 		setTimezone("");
 		
-	}
-
-	public String getId() {
-		return id;
-	}
-
-	public void setId(String id) {
-		this.id = id;
 	}
 
 	public Date getDate() {
@@ -225,22 +221,22 @@ public class Activity extends Metric {
 		this.trackedActivityDistance = trackedActivityDistance;
 	}
 
-	public float getLatitude() {
-		return latitude;
+	public int getLoggedActivityDuration() {
+		return loggedActivityDuration;
 	}
 
-	public void setLatitude(float latitude) {
-		this.latitude = latitude;
+	public void setLoggedActivityDuration(int loggedActivityDuration) {
+		this.loggedActivityDuration = loggedActivityDuration;
 	}
 
-	public float getLongitude() {
-		return longitude;
+	public String getLoggedActivityName() {
+		return loggedActivityName;
 	}
 
-	public void setLongitude(float longitude) {
-		this.longitude = longitude;
+	public void setLoggedActivityName(String loggedActivityName) {
+		this.loggedActivityName = loggedActivityName;
 	}
-	
+
 	public String getTimezone() {
 		return timezone;
 	}
@@ -248,6 +244,10 @@ public class Activity extends Metric {
 	public void setTimezone(String timezone) {
 		this.timezone = timezone;
 	}
-
+	
+	public String getMetricType() {
+		return METRIC_TYPE;
+	}
+	
 
 }

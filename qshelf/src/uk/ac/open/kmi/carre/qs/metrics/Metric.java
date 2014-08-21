@@ -1,4 +1,4 @@
-package uk.ac.open.kmi.carre.metrics;
+package uk.ac.open.kmi.carre.qs.metrics;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -8,21 +8,24 @@ import java.util.List;
 
 import org.apache.commons.lang.time.DateFormatUtils;
 
+import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
+
 public abstract class Metric {
 	public static final int NO_VALUE_PROVIDED = -1;
-	public static final String RDF_PREFIX = "http://carre.kmi.open.ac.uk/ontology/sensors.owl#";
-	public static final String ACTUALITY_ACTUAL = "<" + RDF_PREFIX + "ActualMeasurement" + ">";
-	public static final String ACTUALITY_GOAL = "<" + RDF_PREFIX + "GoalMeasurement" + ">";
+	public static final String ACTUALITY_ACTUAL = CARREVocabulary.SENSOR_RDF_PREFIX + "ActualMeasurement";
+	public static final String ACTUALITY_GOAL = CARREVocabulary.SENSOR_RDF_PREFIX + "GoalMeasurement";
 	public static final String[] IGNORED_FIELDS = {"IGNORED_FIELDS","id", "RDF_PREFIX",
 		"ACTUALITY_GOAL","ACTUALITY_ACTUAL","NO_VALUE_PROVIDED", "REM_SLEEP", "DEEP_SLEEP", 
-		"LIGHT_SLEEP", "ASLEEP", "RESTLESS", "AWAKE" };
-	
+		"LIGHT_SLEEP", "ASLEEP", "RESTLESS", "AWAKE", "METRIC_TYPE" };
+
 	protected String id;
 	protected Date date;
-	protected String provenance;
-	protected String actuality;
-	protected String note;
-	
+	protected String provenance = "";
+	protected String actuality = "";
+	protected String note = "";
+	protected float latitude = NO_VALUE_PROVIDED;
+	protected float longitude = NO_VALUE_PROVIDED;
+
 	public Metric(String identifier) {
 		setId(identifier);
 		setDate(Calendar.getInstance().getTime());
@@ -30,7 +33,7 @@ public abstract class Metric {
 		setActuality("");
 		initialiseEmpty();
 	}
-	
+
 	public Metric(String source, Date dateMeasured) {
 		setDate(dateMeasured);
 		setId(source + 
@@ -39,15 +42,15 @@ public abstract class Metric {
 		setActuality("");
 		initialiseEmpty();
 	}
-	
+
 	protected abstract void initialiseEmpty();
-	
+
 	public String getId() {
 		return id;
 	}
 
 	public void setId(String id) {
-		this.id = id;
+		this.id = id.replaceAll("-", "").replaceAll(":", "");
 	}
 
 	public Date getDate() {
@@ -65,23 +68,23 @@ public abstract class Metric {
 	public void setProvenance(String provenance) {
 		this.provenance = provenance;
 	}
-	
+
 	public void setProvenance(int provenanceCode) {
 		switch (provenanceCode) {
 		case 0:
-			provenance = "<" + RDF_PREFIX + "UniqueDeviceProvenance" + ">";
+			provenance = CARREVocabulary.SENSOR_RDF_PREFIX + "UniqueDeviceProvenance";
 			break;
 		case 1:
-			provenance = "<" + RDF_PREFIX + "AmbiguousDeviceProvenance" + ">";
+			provenance = CARREVocabulary.SENSOR_RDF_PREFIX + "AmbiguousDeviceProvenance";
 			break;
 		case 2:
-			provenance = "<" + RDF_PREFIX + "ManualProvenance" + ">";
+			provenance = CARREVocabulary.SENSOR_RDF_PREFIX + "ManualProvenance";
 			break;
 		case 4:
-			provenance = "<" + RDF_PREFIX + "ManualProfileProvenance" + ">";
+			provenance = CARREVocabulary.SENSOR_RDF_PREFIX + "ManualProfileProvenance";
 			break;
 		default:
-			provenance = "<" + RDF_PREFIX + "ManualProvenance" + ">";
+			provenance = CARREVocabulary.SENSOR_RDF_PREFIX + "ManualProvenance";
 			break;
 		}
 	}
@@ -93,22 +96,56 @@ public abstract class Metric {
 	public void setActuality(String actuality) {
 		this.actuality = actuality;
 	}
-	
+
 	public String getNote() {
 		return note;
 	}
-	
+
 	public void setNote(String note) {
 		this.note = note;
 	}
 
+
+	public float getLatitude() {
+		return latitude;
+	}
+
+	public void setLatitude(float latitude) {
+		this.latitude = latitude;
+	}
+
+	public float getLongitude() {
+		return longitude;
+	}
+
+	public void setLongitude(float longitude) {
+		this.longitude = longitude;
+	}
+
+	public abstract String getMetricType();
+
+	public String getMeasuredByRDF(String source) {
+		if (!toRDFString().equals("")) {
+			String rdf = ""; 
+			String obj = CARREVocabulary.SENSOR_RDF_PREFIX + getId();
+			rdf += " " + obj + " " + CARREVocabulary.MEASURED_BY + " ";
+			rdf += source + " .\n";
+			rdf += " " + obj + " " + CARREVocabulary.HAS_METRIC_TYPE + " ";
+			rdf += getMetricType() + " .\n";
+			return rdf;
+		} else {
+			return "";
+		}
+	}
+
 	public String toRDFString() {
 		String rdf = "";
-		String obj = "<" + RDF_PREFIX + getId() + ">";
+		String obj = CARREVocabulary.SENSOR_RDF_PREFIX + getId();
 		Class<?> thisClass = this.getClass();
 		Field[] fields = thisClass.getDeclaredFields();
 		Field[] superFields = thisClass.getSuperclass().getDeclaredFields();
 		List<Field> allFields = new ArrayList<Field>();
+		
 		for (Field field : fields) {
 			allFields.add(field);
 		}
@@ -127,12 +164,12 @@ public abstract class Metric {
 			}
 			if (!ignore) {
 				String triple = obj + " ";
-				
-				String propertyName = RDF_PREFIX + "has" + 
+
+				String propertyName = CARREVocabulary.SENSOR_RDF_PREFIX + "has" + 
 						Character.toUpperCase(field.getName().charAt(0)) 
 						+ field.getName().substring(1);
-				triple += "<" + propertyName + ">" + " ";
-				
+				triple += propertyName + " ";
+
 				String literal = "";
 				Class<?> fieldType = field.getType();
 				if (fieldType.equals(String.class)) {
@@ -140,8 +177,11 @@ public abstract class Metric {
 						String value = (String) field.get(this);
 						if (value.equals("")) {
 							continue;
+						} else if (value.startsWith(CARREVocabulary.SENSOR_RDF_PREFIX) 
+								|| value.startsWith(CARREVocabulary.MANUFACTURER_RDF_PREFIX)) {
+							literal = value;
 						} else {
-							literal = "\"" + value + "\"";
+							literal = "\"" + value + "\"" + CARREVocabulary.STRING_TYPE;
 						}
 					} catch (IllegalArgumentException e) {
 						e.printStackTrace();
@@ -153,10 +193,10 @@ public abstract class Metric {
 				} else if (fieldType.equals(Float.TYPE)) {
 					try {
 						Float value = (Float) field.get(this);
-						if (value == -1) {
+						if (value == -1 || value == 0) {
 							continue;
 						} else {
-							literal = value.toString();
+							literal = "\"" + value.toString() + "\"" + CARREVocabulary.FLOAT_TYPE;
 						}
 					} catch (IllegalArgumentException e) {
 						e.printStackTrace();
@@ -168,10 +208,10 @@ public abstract class Metric {
 				} else if (fieldType.equals(Double.TYPE)) {
 					try {
 						Double value = (Double) field.get(this);
-						if (value == -1) {
+						if (value == -1 || value == 0) {
 							continue;
 						} else {
-							literal = value.toString();
+							literal = "\"" + value.toString() + "\"" + CARREVocabulary.DOUBLE_TYPE;
 						}
 					} catch (IllegalArgumentException e) {
 						e.printStackTrace();
@@ -183,10 +223,10 @@ public abstract class Metric {
 				} else if (fieldType.equals(Long.TYPE)) {
 					try {
 						Long value = (Long) field.get(this);
-						if (value == -1) {
+						if (value == -1 || value == 0) {
 							continue;
 						} else {
-							literal = value.toString();
+							literal = "\"" + value.toString() + "\"" + CARREVocabulary.LONG_TYPE;
 						}
 					} catch (IllegalArgumentException e) {
 						e.printStackTrace();
@@ -198,10 +238,10 @@ public abstract class Metric {
 				} else if (fieldType.equals(Integer.TYPE)) {
 					try {
 						Integer value = (Integer) field.get(this);
-						if (value == -1) {
+						if (value == -1 || value == 0) {
 							continue;
 						} else {
-							literal = value.toString();
+							literal = "\"" + value.toString() + "\"" + CARREVocabulary.INT_TYPE;
 						}
 					} catch (IllegalArgumentException e) {
 						e.printStackTrace();
@@ -219,7 +259,7 @@ public abstract class Metric {
 							literal = "\"" + 
 									DateFormatUtils
 									.ISO_DATETIME_TIME_ZONE_FORMAT.format(value)
-									+ "\"";
+									+ "\"" + CARREVocabulary.DATE_TYPE;
 						}
 					} catch (IllegalArgumentException e) {
 						e.printStackTrace();
@@ -230,11 +270,21 @@ public abstract class Metric {
 					}
 				}
 				if (!literal.equals("")) {
-					triple += literal + ".";
+					triple += literal + " .";
 					rdf += triple + "\n"; 
 				}
 			}
 		}
+		int numLines = rdf.split(System.getProperty("line.separator")).length;
+		if (rdf != null && numLines < 3) {
+			if (rdf.contains("hasDate") && numLines < 2) {
+				rdf = "";
+			} else if (rdf.contains("hasSedentaryActivityDuration") &&
+					rdf.contains("1440")) {
+				rdf = "";
+			}
+		}
 		return rdf;
 	}
+
 }

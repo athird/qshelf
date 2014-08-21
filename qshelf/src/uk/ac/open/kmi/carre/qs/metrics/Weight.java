@@ -1,11 +1,15 @@
-package uk.ac.open.kmi.carre.metrics;
+package uk.ac.open.kmi.carre.qs.metrics;
 
 import java.util.Calendar;
 import java.util.Date;
 
 import org.apache.commons.lang.time.DateFormatUtils;
 
+import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
+
 public class Weight extends Metric {
+	
+	public static final String METRIC_TYPE = CARREVocabulary.WEIGHT_METRIC;
 	
 	protected double weight;
 	protected double bmi;
@@ -39,13 +43,6 @@ public class Weight extends Metric {
 		setNote("");
 	}
 	
-	
-	public String getId() {
-		return id;
-	}
-	public void setId(String id) {
-		this.id = id;
-	}
 	public double getWeight() {
 		return weight;
 	}
@@ -115,4 +112,7 @@ public class Weight extends Metric {
 		this.fatMass = fatMass;
 	}
 
+	public String getMetricType() {
+		return METRIC_TYPE;
+	}
 }

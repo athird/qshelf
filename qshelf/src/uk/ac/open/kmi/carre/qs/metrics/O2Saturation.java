@@ -1,9 +1,13 @@
-package uk.ac.open.kmi.carre.metrics;
+package uk.ac.open.kmi.carre.qs.metrics;
 
 import java.util.Date;
 
+import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
+
 public class O2Saturation extends Metric {
 
+	public static final String METRIC_TYPE = CARREVocabulary.O2SATURATION_METRIC;
+	
 	protected double o2saturation;
 	
 	public O2Saturation(String identifier) {
@@ -28,4 +32,7 @@ public class O2Saturation extends Metric {
 		this.o2saturation = o2saturation;
 	}
 
+	public String getMetricType() {
+		return METRIC_TYPE;
+	}
 }

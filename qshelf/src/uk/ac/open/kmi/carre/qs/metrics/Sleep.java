@@ -1,11 +1,15 @@
-package uk.ac.open.kmi.carre.metrics;
+package uk.ac.open.kmi.carre.qs.metrics;
 
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
+
 public class Sleep extends Metric {
 	
+	public static final String METRIC_TYPE = CARREVocabulary.SLEEP_METRIC;
+			
 	protected List<SleepRecord> sleepRecords;
 	protected long timesRemAsleep;
 	protected long timesDeeplyAsleep;
@@ -111,6 +115,7 @@ public class Sleep extends Metric {
 	}
 
 	public double getSleepEfficiency() {
+		//minutesAsleep / (timeInBed - minutesToFallAsleep - minutesAfterWakeup)
 		return sleepEfficiency;
 	}
 
@@ -193,5 +198,9 @@ public class Sleep extends Metric {
 			rdf += record.toRDFString() + "\n";
 		}
 		return rdf;
+	}
+	
+	public String getMetricType() {
+		return METRIC_TYPE;
 	}
 }
