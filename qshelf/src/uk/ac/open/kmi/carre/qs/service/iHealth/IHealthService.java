@@ -14,6 +14,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -81,7 +82,8 @@ public class IHealthService extends Service {
 		"OpenApiSpO2", 
 		"OpenApiUserInfo", 
 		"OpenApiWeight",
-	"OpenApiActivity"};
+		"OpenApiActivity",
+	"OpenApiSports"};
 
 	private String apiSerialCode;
 	private Map<String,String> apiSerialVersions;
@@ -111,6 +113,7 @@ public class IHealthService extends Service {
 		WHICH_API_NAME.put("spo2", "OpenApiSpO2");
 		WHICH_API_NAME.put("user-id", "OpenApiUserInfo");
 		WHICH_API_NAME.put("activity", "OpenApiActivity");
+		WHICH_API_NAME.put("sport", "OpenApiSports");
 	}
 
 	@Override
@@ -128,111 +131,131 @@ public class IHealthService extends Service {
 			e.printStackTrace();
 		}
 
-
-		JSONArray jsonArray = (JSONArray) JSONValue.parse(json);
-		for (int i = 0; i < jsonArray.size(); i++) {
-			JSONObject notifyJson = (JSONObject) jsonArray.get(i);
-			String collectionType = (String) notifyJson.get("CollectionType");
-			String dateString = (String) notifyJson.get("MDate");
-			String userId = (String) notifyJson.get("UserID");
-			String subscriptionId = (String) notifyJson.get("SubscriptionId");
-			String endDateString = (String) notifyJson.get("CARREEndDate");
-			System.err.println(collectionType + ", " +dateString + ", " +userId + 
-					", " + subscriptionId);
-
-			SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		
+/*
+ * {"CollectionType":"activity","CollectionUnit":0,"Data":{"Calories":979,"DataId":"af7a583740b34ad4afede12d39080914","DistanceTraveled":0.04368,"Lat":0,"Lon":0,"MeasureTime":"2014-10-08 23:59:59","Note":"","StepLength":78,"TimeZone":"+0100"},"PushId":"46056216d2474d11ae4c6bdb04eb1b30","UserID":"fa07921fe09044329aa64b5fd31a0c0f"}
+ */
+		if (json != null || !json.equals("")) {
+			JSONArray jsonArray = null;
 			try {
-				Date endDate = null;
-				if (endDateString != null && !endDateString.equals("")) {
-					endDate = formatter.parse(endDateString);
+			jsonArray = (JSONArray) JSONValue.parse(json);
+			} catch (ClassCastException e) {
+				jsonArray = (JSONArray) JSONValue.parse("[ " + json + "]");
+			}
+			System.err.println(json);
+			for (int i = 0; i < jsonArray.size(); i++) {
+				JSONObject notifyJson = (JSONObject) jsonArray.get(i);
+				String collectionType = (String) notifyJson.get("CollectionType");
+				String dateString = (String) notifyJson.get("MDate");
+				if (dateString == null || dateString.equals("")) {
+					//2010-03-01 13:45:01
+					SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+					formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
+					dateString = formatter.format(Calendar.getInstance().getTime());
 				}
-				Date mDate = formatter.parse(dateString);
-				IHealthAccessToken userToken = getTokenForUser(userId);
-				if (userToken == null ) {
-					System.err.println("token is null (notify, beginning)");
-				}
+				String userId = (String) notifyJson.get("UserID");
+				String subscriptionId = (String) notifyJson.get("SubscriptionId");
+				String endDateString = (String) notifyJson.get("CARREEndDate");
+				System.err.println(collectionType + ", " +dateString + ", " +userId + 
+						", " + subscriptionId);
 
-				if (userToken.getUser().equals("")) {
-					System.err.println("Token has no user!");
-				} else {
-					System.err.println("User: " + userToken.getUser());
-				}
-				if (userToken.getUserId().equals("")) {
-					System.err.println("Token has no userid!");
-				} else {
-					System.err.println("User Id: " + userToken.getUserId());
-				}
-				if (userToken != null && !userToken.getUser().equals("")) {
-					String user = userToken.getUser();
-					IHealthAccessToken oldAccessToken = accessToken;
-					accessToken = userToken;
+				SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+				formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
+			    
+				try {
+					Date endDate = null;
+					if (endDateString != null && !endDateString.equals("")) {
+						endDate = formatter.parse(endDateString);
+					}
+					Date mDate = formatter.parse(dateString);
+					IHealthAccessToken userToken = getTokenForUser(userId);
+					if (userToken == null ) {
+						System.err.println("token is null (notify, beginning)");
+					}
 
-					OAuthService service = new ServiceBuilder()
-					.provider(IHealthApi.class)
-					.apiKey(oauth_token)
-					.apiSecret(oauth_secret)
-					.callback(this.callbackURL)
-					.build();
-
-
-					List<Metric> newMetrics = new ArrayList<Metric>();
-					//bp,weight,glucose,spo2,activity,sleep,userinfo,food
-					if (collectionType == null || collectionType.equals("")) {
-
-						newMetrics.addAll(getMetrics(mDate, endDate));
-					} else if (collectionType.equals("activity")) {
-
-						newMetrics.addAll(getActivityBetween(mDate, endDate));
-					} else if (collectionType.equals("weight")) {
-
-						newMetrics.addAll(getWeightBetween(mDate, endDate));
-					} else if (collectionType.equals("sleep")) {
-
-						newMetrics.addAll(getSleepBetween(mDate, endDate));
-					} else if (collectionType.equals("bp")) {
-
-						newMetrics.addAll(getBPBetween(mDate, endDate));
-					} else if (collectionType.equals("glucose")) {
-
-						newMetrics.addAll(getGlucoseBetween(mDate, endDate));
-					} else if (collectionType.equals("spo2")) {
-
-						newMetrics.addAll(getOxygenBetween(mDate, endDate));
-					} else if (collectionType.equals("food")) {
-
-						newMetrics.addAll(getFoodBetween(mDate, endDate));
-					} else if (collectionType.equals("sport")) {
-
-						newMetrics.addAll(getSportBetween(mDate, endDate));
+					if (userToken.getUser().equals("")) {
+						System.err.println("Token has no user!");
 					} else {
-
-						newMetrics.addAll(getMetrics(mDate, endDate));
+						System.err.println("User: " + userToken.getUser());
 					}
-
-
-					String rdf = "";
-					for (Metric metric : newMetrics) {
-						rdf += metric.getMeasuredByRDF(PROVENANCE);
-						rdf += metric.toRDFString();
+					if (userToken.getUserId().equals("")) {
+						System.err.println("Token has no userid!");
+					} else {
+						System.err.println("User Id: " + userToken.getUserId());
 					}
-					accessToken = oldAccessToken;
+					if (userToken != null && !userToken.getUser().equals("")) {
+						String user = userToken.getUser();
+						System.err.println(user);
+						IHealthAccessToken oldAccessToken = accessToken;
+						accessToken = userToken;
 
-					System.err.println(rdf);
-					if (!rdf.equals("")) {
-						CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
-						boolean success = true;
-						List<String> triples = Service.chunkRDF(rdf);
-						for (String tripleSet : triples) {
-							success &= connector.insertTriples(user, tripleSet);
+						OAuthService service = new ServiceBuilder()
+						.provider(IHealthApi.class)
+						.apiKey(oauth_token)
+						.apiSecret(oauth_secret)
+						.callback(this.callbackURL)
+						.build();
+
+
+						List<Metric> newMetrics = new ArrayList<Metric>();
+						//bp,weight,glucose,spo2,activity,sleep,userinfo,food
+						if (collectionType == null || collectionType.equals("")) {
+
+							newMetrics.addAll(getMetrics(mDate, endDate));
+						} else if (collectionType.equals("activity")) {
+
+							newMetrics.addAll(getActivityBetween(mDate, endDate));
+						} else if (collectionType.equals("weight")) {
+
+							newMetrics.addAll(getWeightBetween(mDate, endDate));
+						} else if (collectionType.equals("sleep")) {
+
+							newMetrics.addAll(getSleepBetween(mDate, endDate));
+						} else if (collectionType.equals("bp")) {
+
+							newMetrics.addAll(getBPBetween(mDate, endDate));
+						} else if (collectionType.equals("glucose")) {
+
+							newMetrics.addAll(getGlucoseBetween(mDate, endDate));
+						} else if (collectionType.equals("spo2")) {
+
+							newMetrics.addAll(getOxygenBetween(mDate, endDate));
+						} else if (collectionType.equals("food")) {
+
+							newMetrics.addAll(getFoodBetween(mDate, endDate));
+						} else if (collectionType.equals("sport")) {
+
+							newMetrics.addAll(getSportBetween(mDate, endDate));
+						} else {
+
+							newMetrics.addAll(getMetrics(mDate, endDate));
 						}
-						if (!success) {
-							System.err.println("Failed to insert triples.");
+
+
+						String rdf = "";
+						for (Metric metric : newMetrics) {
+							rdf += metric.getMeasuredByRDF(PROVENANCE);
+							rdf += metric.toRDFString();
+						}
+						accessToken = oldAccessToken;
+
+						System.err.println(rdf);
+						if (!rdf.equals("")) {
+							CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
+							boolean success = true;
+							List<String> triples = Service.chunkRDF(rdf);
+							for (String tripleSet : triples) {
+								success &= connector.insertTriples(user, tripleSet);
+							}
+							if (!success) {
+								System.err.println("Failed to insert triples.");
+							}
 						}
 					}
-				}
-			} catch (ParseException e) {
-				e.printStackTrace();
-			}	
+				} catch (ParseException e) {
+					e.printStackTrace();
+				}	
+			}
 		}
 
 	}
@@ -285,7 +308,7 @@ public class IHealthService extends Service {
 
 			String user = userResource.getURI();
 			connection = connectionResource.getURI();
-			
+
 			System.err.println("token literal is " + oauth_token + 
 					//", secret literal is " + oauth_secret + 
 					", user is " + user +
@@ -503,15 +526,19 @@ public class IHealthService extends Service {
 
 		String weightString = makeApiCall("weight", startDate, endDate);
 		JSONObject weightJson = (JSONObject) JSONValue.parse(weightString);
+		// iHealth returns results in pages, this just loops over them. iHealth-specific
 		JSONArray pages = (JSONArray) weightJson.get("pages");
 		if (pages != null ) {
 			for (int i = 0; i < pages.size(); i++) {
 				JSONObject page = (JSONObject) pages.get(i);
+				// Fetch the JSON array corresponding to data from scales. Again, the actual details are iHealth-specific
 				JSONArray weightData = (JSONArray) page.get("WeightDataList");
 				if (weightData != null) {
 					for (int j = 0; j < weightData.size(); j++) {
 						JSONObject currentWeight = (JSONObject )weightData.get(j);
 						if (currentWeight != null) {
+							// So here we're dealing with an individual reading from the iHealth scales.
+							// Extract each piece of data into a variable of the appropriate type and name.
 							Number bmi = (Number) currentWeight.get("BMI");
 							String dataID = (String) currentWeight.get("DataID");
 							Number boneMass = (Number) currentWeight.get("BoneValue");
@@ -529,8 +556,29 @@ public class IHealthService extends Service {
 							Number measurementDate = (Number) currentWeight.get("MDate");
 							String note = (String) currentWeight.get("Note");
 
+							// Now we have all the readings in appropriate variables. 
+							//Create a Weight object (Weight is a subclass of Metric)
+							//You can either pass in a (unique!) string of your choice to the constructor, or
+							//a 'source' string (e.g., "medisana") and the date of the measurement.
+							//whichever you choose, the Weight object should end up with a unique 
+							//identifier for this individual measurement. 
+							
 							Weight weight = new Weight(dataID);
+							
+							// this setId call is probably not needed, the constructor should do the same
 							weight.setId(dataID);
+							
+							//Weight (and its superclass Metric) has methods to add individual pieces of data.
+							//add them in turn.
+							//*IF* there are any fields which are *not* supported by Weight or Metric but which
+							//Medisana returns, consider adding them to Metric or Weight (whichever is most appropriate)
+							//as well-named fields with get/set methods. (The naming is important: the RDF is generated *from*
+							//the Java identifiers, so if you want to add, e.g., mood, use something like
+							//protected String mood;
+							//modify initialiseEmpty() to set it to an empty value and provide getMood/setMood methods 
+							//the RDF will then end up containing a triple with the property "carreSensors:hasMood".
+							//(Not saying you have to add any data fields at all, if you think the Medisana-specific fields aren't likely
+							//to be useful to CARRE, you can just ignore them.)
 							weight.setBmi(bmi.floatValue());
 							weight.setBoneMass(boneMass.floatValue());
 							weight.setBodyDCI(dci.floatValue());
@@ -549,6 +597,8 @@ public class IHealthService extends Service {
 							}
 							Date date = new Date(measurementDate.longValue() * MILLISECONDS_PER_SECOND);
 							weight.setDate(date);
+							
+							//add the Weight object you've created to the List of Metrics which this method returns.
 							results.add(weight);
 						}
 					}
@@ -848,6 +898,7 @@ public class IHealthService extends Service {
 				+ "&response_type=refresh_token"
 				+ "&refresh_token=" + accessToken.getRefreshToken()
 				+ "&UserID=" + accessToken.getUserId();
+		System.err.println(url);
 		IHealthAccessToken token = null;
 		try {
 			URL getAccessToken = new URL(url);

@@ -16,7 +16,7 @@ public class Activity extends Metric {
 	
 	protected int steps;
 	protected float distance;
-	protected float calories;
+	protected float caloriesMetabolised;
 	protected float caloriesBMR;
 	protected float activityCalories;
 	protected float marginalCalories;
@@ -94,11 +94,11 @@ public class Activity extends Metric {
 	}
 
 	public float getCalories() {
-		return calories;
+		return caloriesMetabolised;
 	}
 
 	public void setCalories(float calories) {
-		this.calories = calories;
+		this.caloriesMetabolised = calories;
 	}
 
 	public float getCaloriesBMR() {

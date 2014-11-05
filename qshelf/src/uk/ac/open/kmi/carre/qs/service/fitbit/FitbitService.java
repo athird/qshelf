@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -566,6 +567,7 @@ public class FitbitService extends Service {
 			try {
 				//Unparseable date: "2014-07-10T00:08:00.000"
 				SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+				format.setTimeZone(TimeZone.getTimeZone("UTC"));
 				//String noMilliseconds = startTime.split(".")[0];
 				startDate = format.parse(startTime.substring(0, startTime.length() - 4));
 				//startDate = DateFormat.getInstance().parse(startTime);
@@ -631,9 +633,15 @@ public class FitbitService extends Service {
 		long activityCalories = (Long) summary.get("activityCalories");
 		long caloriesBMR = (Long) summary.get("caloriesBMR");
 		long caloriesOut = (Long) summary.get("caloriesOut");
-		float elevation = ((Number) summary.get("elevation")).floatValue();
+		float elevation = -1;
+		if (summary.get("elevation") != null) {
+			elevation = ((Number) summary.get("elevation")).floatValue();
+		}
 		long fairlyActiveMinutes = (Long) summary.get("fairlyActiveMinutes");
-		long floors = (Long) summary.get("floors");
+		long floors = -1;
+		if (summary.get("floors") != null) {
+			floors = (Long) summary.get("floors");
+		}
 		long lightlyActiveMinutes = (Long) summary.get("lightlyActiveMinutes");
 		long marginalCalories = (Long) summary.get("marginalCalories");
 		long sedentaryMinutes = (Long) summary.get("sedentaryMinutes");
@@ -644,9 +652,13 @@ public class FitbitService extends Service {
 		activity.setActivityCalories(activityCalories);
 		activity.setCaloriesBMR(caloriesBMR);
 		activity.setCalories(caloriesOut);
-		activity.setElevation(elevation);
+		if (elevation != -1) {
+			activity.setElevation(elevation);
+		}
 		activity.setModerateActivityDuration(new Long(fairlyActiveMinutes).intValue());
-		activity.setFloors(new Long(floors).intValue());
+		if (floors != -1) {
+			activity.setFloors(new Long(floors).intValue());
+		}
 		activity.setLightActivityDuration(new Long(lightlyActiveMinutes).intValue());
 		activity.setSedentaryActivityDuration(new Long(sedentaryMinutes).intValue());
 		activity.setSteps(new Long(steps).intValue());
@@ -723,7 +735,7 @@ public class FitbitService extends Service {
 		String reqURLS = baseURL + "/user/-/profile.json";
 		System.err.println(reqURLS);
 
-		String dateString = DateFormatUtils.format(date, "yyyy-MM-dd");
+		String dateString = DateFormatUtils.format(date, "yyyy-MM-dd",TimeZone.getTimeZone("UTC"));
 		OAuthRequest serviceRequest = new OAuthRequest(Verb.GET, baseURL 
 				//+ "/user/-/profile.json");
 				//+ "/user/-/activities/date/2014-06-05.json");

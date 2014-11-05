@@ -7,11 +7,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang.time.DateFormatUtils;
+import org.apache.commons.lang.time.DateUtils;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
@@ -244,7 +246,7 @@ public class WithingsService extends Service {
 			Date today = cal.getTime();
 			//cal.set(2014, 03, 28);
 			cal.clear();
-			cal.set(2014,04,19);
+			cal.set(2014,04,18);
 			Date startDate = cal.getTime();
 
 			List<Metric> metrics = getMetrics(startDate, today);
@@ -269,9 +271,10 @@ public class WithingsService extends Service {
 		sleep = parseSleep(sleep, sleepRecord);
 		List<SleepRecord> dailyRecords = sleep.getSleepRecords();
 		List<SleepRecord> currentDailyRecords = new ArrayList<SleepRecord>();
-		String currentDate = DateFormatUtils.format(startDate, "yyyy-MM-dd");
+		String currentDate = DateFormatUtils.format(startDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC"));
+	    
 		for (SleepRecord record : dailyRecords) {
-			String timestamp = DateFormatUtils.format(record.getStartDate(), "yyyy-MM-dd");
+			String timestamp = DateFormatUtils.format(record.getStartDate(), "yyyy-MM-dd", TimeZone.getTimeZone("UTC"));
 			if (timestamp.equals(currentDate)) {
 				currentDailyRecords.add(record);
 			} else {
@@ -325,7 +328,10 @@ public class WithingsService extends Service {
 		long startTime = (Long) sleepJson.get("startdate");
 		int sleepStatus = ((Long) sleepJson.get("state")).intValue();;
 		long endTime = (Long) sleepJson.get("enddate");
-		SleepRecord sleepRecord = new SleepRecord(machineName, date);
+		Date startDate = new Date(startTime * MILLISECONDS_PER_SECOND);
+		Date endDate = new Date(endTime * MILLISECONDS_PER_SECOND);
+		Date dayDate = DateUtils.truncate(startDate, Calendar.DATE);
+		SleepRecord sleepRecord = new SleepRecord(machineName, dayDate);
 		switch(sleepStatus) {
 		case AWAKE:
 			sleepRecord.setSleepStatus(SleepRecord.AWAKE);
@@ -340,8 +346,6 @@ public class WithingsService extends Service {
 			break;
 		}
 
-		Date startDate = new Date(startTime * MILLISECONDS_PER_SECOND);
-		Date endDate = new Date(endTime * MILLISECONDS_PER_SECOND);
 		sleepRecord.setStartDate(startDate);
 		sleepRecord.setEndDate(endDate);
 		return sleepRecord;
@@ -400,8 +404,8 @@ public class WithingsService extends Service {
 	public List<Metric> getMetrics(Date startDate, Date endDate) {
 		List<Metric> results = new ArrayList<Metric>();
 		Map<String, String> parameters = getDefaultParams("getmeas");
-		System.err.println(DateFormatUtils.format(startDate, "yyyy-MM-dd"));
-		System.err.println(DateFormatUtils.format(endDate, "yyyy-MM-dd"));
+		System.err.println(DateFormatUtils.format(startDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC")));
+		System.err.println(DateFormatUtils.format(endDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC")));
 		parameters.put("startdate", "" + (startDate.getTime()/MILLISECONDS_PER_SECOND));
 		parameters.put("enddate", "" + (endDate.getTime()/MILLISECONDS_PER_SECOND));
 		parameters.put("category", "" + ACTUAL_MEASUREMENT);
@@ -601,7 +605,8 @@ public class WithingsService extends Service {
 	}
 
 	private List<Activity> getActivityBetween(Date startDate, Date endDate) {
-		List<Activity> results = new ArrayList<Activity>();
+		return getActivityRange(startDate, endDate);
+		/*List<Activity> results = new ArrayList<Activity>();
 		String endDateString = DateFormatUtils.format(endDate, "yyyy-MM-dd");
 		String dateString = DateFormatUtils.format(startDate, "yyyy-MM-dd");
 		Date date = startDate;
@@ -611,13 +616,13 @@ public class WithingsService extends Service {
 			date.setTime(date.getTime() + (SECONDS_PER_DAY * MILLISECONDS_PER_SECOND));
 			dateString = DateFormatUtils.format(date, "yyyy-MM-dd");
 		}
-		return results;
+		return results;*/
 	}
 
 	private Activity getActivity(Date date) {
 		Activity activity = new Activity(machineName, date);
 		Map<String,String> parameters = getDefaultParams("getactivity");
-		String dateString = DateFormatUtils.format(date, "yyyy-MM-dd");
+		String dateString = DateFormatUtils.format(date, "yyyy-MM-dd", TimeZone.getTimeZone("UTC"));
 		parameters.put("date", dateString);
 		System.err.println(dateString);
 		String activityRecord = makeApiCall("/v2/measure", parameters);
@@ -625,12 +630,57 @@ public class WithingsService extends Service {
 		return parseActivity(activity, activityRecord);
 	}
 
+	private List<Activity> getActivityRange(Date startDate, Date endDate) {
+		List<Activity> activities = new ArrayList<Activity>();
+		Map<String,String> parameters = getDefaultParams("getactivity");
+		String startDateString = DateFormatUtils.format(startDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC"));
+		String endDateString = DateFormatUtils.format(endDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC"));
+		parameters.put("startdateymd", startDateString);
+		parameters.put("enddateymd", endDateString);
+		System.err.println(startDateString);
+		System.err.println(endDateString);
+		String activityRecord = makeApiCall("/v2/measure", parameters);
+		System.err.println(activityRecord);
+		return parseActivityRange(startDate, activities, activityRecord);
+	}
+
+	
 	private Activity parseActivity(Activity activity, String activityString) {
 		JSONObject json = getBodyJson(activityString);
 		if (json == null || json.keySet() == null || json.keySet().size() == 0) {
 			return activity;
 		}
 		return parseSingleActivity(activity, json);
+	}
+	
+	private List<Activity> parseActivityRange(Date date, List<Activity> activities, String activityString) {
+		JSONArray activityArray = (JSONArray) getBodyJsonAsArray(activityString);
+		if (activityArray == null || activityArray.size() == 0) {
+			return activities;
+		}
+		for (int i = 0; i < activityArray.size(); i++) {
+			JSONObject json = (JSONObject) activityArray.get(i);
+			if (json == null || json.keySet() == null || json.keySet().size() == 0) {
+				continue;
+			}
+			String dateString = (String) json.get("date");
+			Date dateToUse = null;
+			if (dateString == null || dateString.equals("")) {
+				dateToUse = date;
+			} else {
+				String[] dateComponents = dateString.split("-");
+				Calendar cal = Calendar.getInstance();
+				cal.set(Integer.parseInt(dateComponents[0]),
+						Integer.parseInt(dateComponents[1]) - 1, 
+						Integer.parseInt(dateComponents[2]));
+				dateToUse = cal.getTime();
+			}
+			Activity activity = parseSingleActivity(new Activity(machineName, dateToUse), json);
+			if (activity != null) {
+				activities.add(activity);
+			}
+		}
+		return activities;
 	}
 
 	private Activity parseSingleActivity(Activity activity, JSONObject activityJson) {
@@ -690,6 +740,17 @@ public class WithingsService extends Service {
 		return body;
 	}
 
+	private JSONArray getBodyJsonAsArray(String jsonString) {
+		JSONObject json = (JSONObject) JSONValue.parse(jsonString);
+		long status = (Long) json.get("status");
+		if (status != 0) {
+			return null;
+		}
+		JSONObject body = (JSONObject) json.get("body");
+		JSONArray activities = (JSONArray) body.get("activities");
+		return activities;
+	}
+	
 	private Map<String,String> getDefaultParams(String action) {
 		Map<String,String> parameters = new HashMap<String,String>();
 		parameters.put("action", action);

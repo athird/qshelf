@@ -1,10 +1,13 @@
 package uk.ac.open.kmi.carre.qs.metrics;
 
 import java.lang.reflect.Field;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 import org.apache.commons.lang.time.DateFormatUtils;
 
@@ -36,8 +39,10 @@ public abstract class Metric {
 
 	public Metric(String source, Date dateMeasured) {
 		setDate(dateMeasured);
+		DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
+	    df.setTimeZone(TimeZone.getTimeZone("UTC"));
 		setId(source + 
-				DateFormatUtils.ISO_DATETIME_FORMAT.format(getDate()).replaceAll(" ", "_"));
+				df.format(getDate()).replaceAll(" ", "_"));
 		provenance = "";
 		setActuality("");
 		initialiseEmpty();
@@ -256,9 +261,10 @@ public abstract class Metric {
 						if (value == null) {
 							continue;
 						} else {
+							DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
+						    df.setTimeZone(TimeZone.getTimeZone("UTC"));
 							literal = "\"" + 
-									DateFormatUtils
-									.ISO_DATETIME_TIME_ZONE_FORMAT.format(value)
+									df.format(value)
 									+ "\"" + CARREVocabulary.DATE_TYPE;
 						}
 					} catch (IllegalArgumentException e) {

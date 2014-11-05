@@ -90,7 +90,7 @@ public abstract class Service {
 		} else {
 			while (rdf.length() > STRING_MAX_LENGTH) {
 				String current = rdf.substring(0, STRING_MAX_LENGTH);
-				int lastTripleEndsAt = current.lastIndexOf('.') + 1;
+				int lastTripleEndsAt = current.lastIndexOf("\n") + 1;
 				current = rdf.substring(0, lastTripleEndsAt);
 				rdf = rdf.substring(lastTripleEndsAt);
 				results.add(current);

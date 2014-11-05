@@ -122,6 +122,9 @@ public class CarrePlatformConnector {
 	public Boolean insertTriples(String user, String triples) {
 		VirtGraph set;
 		try {
+			if (user.contains(CARREVocabulary.USER_URL)) {
+				user = user.replace(CARREVocabulary.USER_URL, "");
+			}
 			set = new VirtGraph (endpoint, DB_USERNAME, DB_PASSWORD);
 			String query = "";
 			for (String prefix : CARREVocabulary.PREFICES) {

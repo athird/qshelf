@@ -13,7 +13,7 @@ public interface CARREVocabulary {
 	public static final String MEASURED_BY = "<http://carre.kmi.open.ac.uk/ontology#isMeasuredBy>";
 	public static final String HAS_METRIC_TYPE = "<http://carre.kmi.open.ac.uk/ontology#hasMetricType>";
 	public static final String HAS_MANUFACTURER = "http://carre.kmi.open.ac.uk/ontology/manufacturer#hasManufacturer";
-	public static final String DATE_TYPE = "^^xsd:date";
+	public static final String DATE_TYPE = "^^xsd:datetime";
 	public static final String DOUBLE_TYPE = "^^xsd:double";
 	public static final String FLOAT_TYPE = "^^xsd:float";
 	public static final String LONG_TYPE = "^^xsd:long";
