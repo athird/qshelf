@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.logging.Logger;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -43,10 +44,13 @@ import uk.ac.open.kmi.carre.qs.metrics.SleepRecord;
 import uk.ac.open.kmi.carre.qs.metrics.Weight;
 import uk.ac.open.kmi.carre.qs.service.RDFAbleToken;
 import uk.ac.open.kmi.carre.qs.service.Service;
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.sparql.CarrePlatformConnector;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
 public class WithingsService extends Service {
+	private static Logger logger = Logger.getLogger(WithingsService.class.getName());
+	
 	public static final String name = "Withings API";
 	public static final String machineName = "withings";
 	public static final int version = 1;
@@ -102,10 +106,30 @@ public class WithingsService extends Service {
 	}
 
 	@Override
-	public void handleNotification(HttpServletRequest request, HttpServletResponse response) {
+	public String getRequestContents(HttpServletRequest request) {
+		String json = "{\n";
 		String startDateString = request.getParameter("startdate");
 		String endDateString = request.getParameter("enddate");
 		String useridentifier = request.getParameter("userid");
+		json += "\t\"startdate\" : \""  + startDateString + "\"\n"; 
+		json += "\t\"enddate\" : \""  + endDateString + "\"\n"; 
+		json += "\t\"userid\" : \""  + useridentifier + "\"\n";
+		json += "}";
+		return json;
+	}
+	
+	@Override
+	public void handleNotification(String requestContent) {
+		String json = requestContent;
+		JSONObject jsonObject = (JSONObject) JSONValue.parse(json);
+		if (jsonObject == null) {
+			logger.info("json wouldn't parse.");
+			logger.info(json);
+		}
+		String useridentifier =  (String) jsonObject.get("userid");
+		String startDateString = (String) jsonObject.get("startdate");
+		String endDateString = (String) jsonObject.get("enddate");
+		
 		long startTime = Long.parseLong(startDateString);
 		long endTime = Long.parseLong(endDateString);
 		Date startDate = new Date(startTime * MILLISECONDS_PER_SECOND);
@@ -131,32 +155,41 @@ public class WithingsService extends Service {
 			List<Metric> newMetrics = new ArrayList<Metric>();
 			newMetrics.addAll(getMetrics(startDate, endDate));
 
-			String subscriptionId = userToken.getUser()
-					.replaceAll("<" + CARREVocabulary.BASE_URL, "")
-					.replaceAll(">", "");
-
+			String subscriptionId = ""; 
+			if (userToken.getUser().contains("https:")) {
+				subscriptionId = userToken.getUser()
+						.replaceAll("<" + CARREVocabulary.SECURE_BASE_URL, "")
+						.replaceAll(">", "");
+			} else {
+				subscriptionId = userToken.getUser()
+						.replaceAll("<" + CARREVocabulary.BASE_URL, "")
+						.replaceAll(">", "");
+			}
+			
+			String userId = subscriptionId.substring(subscriptionId.lastIndexOf("/") + 1);
+			logger.info(userId);
+			
 			String rdf = "";
 			for (Metric metric : newMetrics) {
-				rdf += metric.getMeasuredByRDF(PROVENANCE);
-				rdf += metric.toRDFString();
+				rdf += metric.getMeasuredByRDF(PROVENANCE, userId);
+				rdf += metric.toRDFString(userId);
 			}
 			accessToken = oldAccessToken;
-			userId = oldUserId;
 
-			System.err.println(rdf);
+			logger.finer(rdf);
 			if (!rdf.equals("")) {
 				CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
 				boolean success = true;
 				List<String> triples = Service.chunkRDF(rdf);
-				String userId = subscriptionId.substring(CARREVocabulary.USER_URL.length());
-				System.err.println("USERID is " + userId);
+				logger.info("USERID is " + userId);
 				for (String tripleSet : triples) {
 					success &= connector.insertTriples(userId, tripleSet);
 				}
 				if (!success) {
-					System.err.println("Failed to insert triples.");
+					logger.info("Failed to insert triples.");
 				}
 			}
+			userId = oldUserId;
 		}
 	}
 
@@ -171,22 +204,23 @@ public class WithingsService extends Service {
 				+ CARREVocabulary.ACCESS_TOKEN_PREDICATE + "> ?oauth_token.\n" +
 				" ?connection <" + 
 				CARREVocabulary.ACCESS_TOKEN_SECRET_PREDICATE + "> ?oauth_secret. }\n}\n";
-		
-		System.err.println(sparql);
+
+		logger.info(sparql);
 		ResultSet results = connector.executeSPARQL(sparql);
 		while (results.hasNext()) {
+			logger.info("There are results.");
 			QuerySolution solution =  results.next();
 			Literal tokenLiteral = solution.getLiteral("oauth_token");
 			Literal secretLiteral = solution.getLiteral("oauth_secret");
 			Resource userResource = solution.getResource("user");
 			if (tokenLiteral == null || secretLiteral == null || userResource == null) {
-				System.err.println("Token, secret literal or user id is null!");
+				logger.info("Token, secret literal or user id is null!");
 				return null;
 			}
 			String oauth_token = tokenLiteral.getString();
 			String oauth_secret = secretLiteral.getString();
 			String user = userResource.getURI();
-			System.err.println("token literal is " + oauth_token + 
+			logger.info("token literal is " + oauth_token + 
 					", secret literal is " + oauth_secret + 
 					", user is " + user);
 			RDFAbleToken token = new RDFAbleToken(oauth_token, oauth_secret);
@@ -222,17 +256,17 @@ public class WithingsService extends Service {
 		if (!((oauthToken != null && !oauthToken.equals("")) ||
 				oauthTokenSecret != null && !oauthTokenSecret.equals(""))) {
 			Token requestToken = service.getRequestToken();
-			System.err.println("RequestToken:" + requestToken.getToken() 
+			logger.info("RequestToken:" + requestToken.getToken() 
 					+ ", " + requestToken.getSecret());
 			request.getSession().setAttribute(machineName + "reqtoken", requestToken.getToken());
 			request.getSession().setAttribute(machineName + "reqsec", requestToken.getSecret());
 
 			String authURL= service.getAuthorizationUrl(requestToken);
 
-			System.err.println(authURL);
+			logger.info(authURL);
 			return response.encodeRedirectURL(authURL);
 		} else {
-			System.err.println("oauthTokenSecret" + oauthTokenSecret);
+			logger.info("oauthTokenSecret" + oauthTokenSecret);
 			Verifier verifier = new Verifier(oauthTokenSecret);
 			Token requestToken = new Token((String) request.getSession().getAttribute(machineName + "reqtoken"),
 					(String) request.getSession().getAttribute(machineName + "reqsec"));
@@ -240,8 +274,8 @@ public class WithingsService extends Service {
 			Token tmpAccessToken = service.getAccessToken(requestToken, verifier);//, useridParameter);
 			accessToken = new RDFAbleToken(tmpAccessToken.getToken(), tmpAccessToken.getSecret());
 
-			System.err.println("accessToken: " + accessToken.getToken());
-			System.err.println("accessTokenSecret: " + accessToken.getSecret());
+			logger.info("accessToken: " + accessToken.getToken());
+			logger.info("accessTokenSecret: " + accessToken.getSecret());
 			Calendar cal = Calendar.getInstance();
 			Date today = cal.getTime();
 			//cal.set(2014, 03, 28);
@@ -252,8 +286,8 @@ public class WithingsService extends Service {
 			List<Metric> metrics = getMetrics(startDate, today);
 
 			for (Metric metric : metrics) {
-				System.err.println(metric.getMeasuredByRDF(PROVENANCE));
-				System.err.println(metric.toRDFString());
+				logger.info(metric.getMeasuredByRDF(PROVENANCE, CARREVocabulary.DEFAULT_USER_FOR_TESTING));
+				logger.info(metric.toRDFString(CARREVocabulary.DEFAULT_USER_FOR_TESTING));
 			}
 			return "";
 		}
@@ -272,7 +306,7 @@ public class WithingsService extends Service {
 		List<SleepRecord> dailyRecords = sleep.getSleepRecords();
 		List<SleepRecord> currentDailyRecords = new ArrayList<SleepRecord>();
 		String currentDate = DateFormatUtils.format(startDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC"));
-	    
+
 		for (SleepRecord record : dailyRecords) {
 			String timestamp = DateFormatUtils.format(record.getStartDate(), "yyyy-MM-dd", TimeZone.getTimeZone("UTC"));
 			if (timestamp.equals(currentDate)) {
@@ -404,8 +438,8 @@ public class WithingsService extends Service {
 	public List<Metric> getMetrics(Date startDate, Date endDate) {
 		List<Metric> results = new ArrayList<Metric>();
 		Map<String, String> parameters = getDefaultParams("getmeas");
-		System.err.println(DateFormatUtils.format(startDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC")));
-		System.err.println(DateFormatUtils.format(endDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC")));
+		logger.info(DateFormatUtils.format(startDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC")));
+		logger.info(DateFormatUtils.format(endDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC")));
 		parameters.put("startdate", "" + (startDate.getTime()/MILLISECONDS_PER_SECOND));
 		parameters.put("enddate", "" + (endDate.getTime()/MILLISECONDS_PER_SECOND));
 		parameters.put("category", "" + ACTUAL_MEASUREMENT);
@@ -624,9 +658,9 @@ public class WithingsService extends Service {
 		Map<String,String> parameters = getDefaultParams("getactivity");
 		String dateString = DateFormatUtils.format(date, "yyyy-MM-dd", TimeZone.getTimeZone("UTC"));
 		parameters.put("date", dateString);
-		System.err.println(dateString);
+		logger.info(dateString);
 		String activityRecord = makeApiCall("/v2/measure", parameters);
-		System.err.println(activityRecord);
+		logger.info(activityRecord);
 		return parseActivity(activity, activityRecord);
 	}
 
@@ -637,14 +671,14 @@ public class WithingsService extends Service {
 		String endDateString = DateFormatUtils.format(endDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC"));
 		parameters.put("startdateymd", startDateString);
 		parameters.put("enddateymd", endDateString);
-		System.err.println(startDateString);
-		System.err.println(endDateString);
+		logger.info(startDateString);
+		logger.info(endDateString);
 		String activityRecord = makeApiCall("/v2/measure", parameters);
-		System.err.println(activityRecord);
+		logger.info(activityRecord);
 		return parseActivityRange(startDate, activities, activityRecord);
 	}
 
-	
+
 	private Activity parseActivity(Activity activity, String activityString) {
 		JSONObject json = getBodyJson(activityString);
 		if (json == null || json.keySet() == null || json.keySet().size() == 0) {
@@ -652,7 +686,7 @@ public class WithingsService extends Service {
 		}
 		return parseSingleActivity(activity, json);
 	}
-	
+
 	private List<Activity> parseActivityRange(Date date, List<Activity> activities, String activityString) {
 		JSONArray activityArray = (JSONArray) getBodyJsonAsArray(activityString);
 		if (activityArray == null || activityArray.size() == 0) {
@@ -711,10 +745,10 @@ public class WithingsService extends Service {
 		OAuthRequest serviceRequest = new OAuthRequest(HTTP_METHOD, 
 				baseURL + apiMethod);
 
-		System.err.println(baseURL + apiMethod);
+		logger.info(baseURL + apiMethod);
 
 		for (String paramName : parameters.keySet()) {
-			System.err.println(paramName + "=" + parameters.get(paramName));
+			logger.info(paramName + "=" + parameters.get(paramName));
 			serviceRequest.addQuerystringParameter(paramName, 
 					parameters.get(paramName));
 		}
@@ -726,7 +760,7 @@ public class WithingsService extends Service {
 
 		Response requestResponse = serviceRequest.send();
 		String output = requestResponse.getBody();
-		System.err.println(output);
+		logger.info(output);
 		return output;
 	}
 
@@ -750,7 +784,7 @@ public class WithingsService extends Service {
 		JSONArray activities = (JSONArray) body.get("activities");
 		return activities;
 	}
-	
+
 	private Map<String,String> getDefaultParams(String action) {
 		Map<String,String> parameters = new HashMap<String,String>();
 		parameters.put("action", action);

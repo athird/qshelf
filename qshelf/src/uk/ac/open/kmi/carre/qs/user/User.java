@@ -2,10 +2,14 @@ package uk.ac.open.kmi.carre.qs.user;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 import uk.ac.open.kmi.carre.qs.service.RDFAbleToken;
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 
 public class User {
+	private static Logger logger = Logger.getLogger(User.class.getName());
+	
 	public static final String FOAF_PREFIX = "http://carre.kmi.open.ac.uk/people/";
 	public static final String RDF_PREFIX = "http://carre.kmi.open.ac.uk/ontology/sensors.owl#";
 	public static final String[] IGNORED_FIELDS = {"IGNORED_FIELDS", "RDF_PREFIX"};

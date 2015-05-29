@@ -1,10 +1,15 @@
 package uk.ac.open.kmi.carre.qs.service.iHealth;
 
+import java.util.logging.Logger;
+
 import org.scribe.builder.api.DefaultApi20;
 import org.scribe.model.OAuthConfig;
 
-public class IHealthApi extends DefaultApi20 {
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 
+public class IHealthApi extends DefaultApi20 {
+	private static Logger logger = Logger.getLogger(IHealthApi.class.getName());
+	
 	@Override
 	public String getAccessTokenEndpoint() {
 		return IHealthService.accessTokenURL;

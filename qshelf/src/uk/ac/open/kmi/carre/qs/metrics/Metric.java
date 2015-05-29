@@ -8,19 +8,24 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
+import java.util.logging.Logger;
 
 import org.apache.commons.lang.time.DateFormatUtils;
 
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
 public abstract class Metric {
+	private static Logger logger = Logger.getLogger(Metric.class.getName());
+	
 	public static final int NO_VALUE_PROVIDED = -1;
-	public static final String ACTUALITY_ACTUAL = CARREVocabulary.SENSOR_RDF_PREFIX + "ActualMeasurement";
-	public static final String ACTUALITY_GOAL = CARREVocabulary.SENSOR_RDF_PREFIX + "GoalMeasurement";
-	public static final String[] IGNORED_FIELDS = {"IGNORED_FIELDS","id", "RDF_PREFIX",
+	public static final String ACTUALITY_ACTUAL = CARREVocabulary.SENSOR_RDF_PREFIX + "actual_measurement";
+	public static final String ACTUALITY_GOAL = CARREVocabulary.SENSOR_RDF_PREFIX + "goal_measurement";
+	public static final String[] IGNORED_FIELDS = {"IGNORED_FIELDS","id", "user", "RDF_PREFIX",
 		"ACTUALITY_GOAL","ACTUALITY_ACTUAL","NO_VALUE_PROVIDED", "REM_SLEEP", "DEEP_SLEEP", 
 		"LIGHT_SLEEP", "ASLEEP", "RESTLESS", "AWAKE", "METRIC_TYPE" };
 
+	protected String user;
 	protected String id;
 	protected Date date;
 	protected String provenance = "";
@@ -45,6 +50,7 @@ public abstract class Metric {
 				df.format(getDate()).replaceAll(" ", "_"));
 		provenance = "";
 		setActuality("");
+		user = "";
 		initialiseEmpty();
 	}
 
@@ -77,19 +83,19 @@ public abstract class Metric {
 	public void setProvenance(int provenanceCode) {
 		switch (provenanceCode) {
 		case 0:
-			provenance = CARREVocabulary.SENSOR_RDF_PREFIX + "UniqueDeviceProvenance";
+			provenance = CARREVocabulary.UNIQUE_DEVICE_PROVENANCE;
 			break;
 		case 1:
-			provenance = CARREVocabulary.SENSOR_RDF_PREFIX + "AmbiguousDeviceProvenance";
+			provenance = CARREVocabulary.AMBIGUOUS_DEVICE_PROVENANCE;
 			break;
 		case 2:
-			provenance = CARREVocabulary.SENSOR_RDF_PREFIX + "ManualProvenance";
+			provenance = CARREVocabulary.MANUAL_PROVENANCE;
 			break;
 		case 4:
-			provenance = CARREVocabulary.SENSOR_RDF_PREFIX + "ManualProfileProvenance";
+			provenance = CARREVocabulary.MANUAL_PROFILE_PROVENANCE;
 			break;
 		default:
-			provenance = CARREVocabulary.SENSOR_RDF_PREFIX + "ManualProvenance";
+			provenance = CARREVocabulary.MANUAL_PROVENANCE;
 			break;
 		}
 	}
@@ -129,13 +135,15 @@ public abstract class Metric {
 
 	public abstract String getMetricType();
 
-	public String getMeasuredByRDF(String source) {
-		if (!toRDFString().equals("")) {
+	public String getMeasuredByRDF(String source, String userId) {
+		user = userId;
+		String currentRDFPrefix = CARREVocabulary.USER_URL + userId + "/" + CARREVocabulary.MEASUREMENTS_SUFFIX;
+		if (!toRDFString( userId).equals("")) {
 			String rdf = ""; 
-			String obj = CARREVocabulary.SENSOR_RDF_PREFIX + getId();
-			rdf += " " + obj + " " + CARREVocabulary.MEASURED_BY + " ";
+			String obj = "<" + currentRDFPrefix + getId() + ">";
+			rdf += " " + obj + " <" + CARREVocabulary.MEASURED_BY + "> ";
 			rdf += source + " .\n";
-			rdf += " " + obj + " " + CARREVocabulary.HAS_METRIC_TYPE + " ";
+			rdf += " " + obj + " " + CARREVocabulary.RDF_TYPE + " ";
 			rdf += getMetricType() + " .\n";
 			return rdf;
 		} else {
@@ -143,9 +151,11 @@ public abstract class Metric {
 		}
 	}
 
-	public String toRDFString() {
+	public String toRDFString(String userId) {
 		String rdf = "";
-		String obj = CARREVocabulary.SENSOR_RDF_PREFIX + getId();
+		String currentRDFPrefix = CARREVocabulary.USER_URL + userId + "/" + CARREVocabulary.MEASUREMENTS_SUFFIX;
+		
+		String obj = "<" + currentRDFPrefix + getId() + ">";
 		Class<?> thisClass = this.getClass();
 		Field[] fields = thisClass.getDeclaredFields();
 		Field[] superFields = thisClass.getSuperclass().getDeclaredFields();
@@ -169,11 +179,21 @@ public abstract class Metric {
 			}
 			if (!ignore) {
 				String triple = obj + " ";
-
-				String propertyName = CARREVocabulary.SENSOR_RDF_PREFIX + "has" + 
-						Character.toUpperCase(field.getName().charAt(0)) 
-						+ field.getName().substring(1);
-				triple += propertyName + " ";
+				String valuePrefix = field.getName();
+				valuePrefix = valuePrefix.replaceAll("([A-Z])", "_$1").toLowerCase();
+				String valueObj = "";
+				if (obj.endsWith(">")) {
+					valueObj = obj.substring(0,obj.length() - 2);
+					valueObj = valueObj + "_" + valuePrefix + ">";
+				} else {
+					valueObj = obj;
+					valueObj = valueObj + "_" + valuePrefix;
+				}
+				
+				String propertyName = CARREVocabulary.SENSOR_RDF_PREFIX + "has_" + valuePrefix;
+				triple += propertyName + " " + valueObj + ". \n";
+				
+				triple += valueObj + " <" + CARREVocabulary.HAS_VALUE + "> ";
 
 				String literal = "";
 				Class<?> fieldType = field.getType();
@@ -185,6 +205,8 @@ public abstract class Metric {
 						} else if (value.startsWith(CARREVocabulary.SENSOR_RDF_PREFIX) 
 								|| value.startsWith(CARREVocabulary.MANUFACTURER_RDF_PREFIX)) {
 							literal = value;
+						} else if (value.startsWith(currentRDFPrefix)) {
+							literal = "<" + value + ">";
 						} else {
 							literal = "\"" + value + "\"" + CARREVocabulary.STRING_TYPE;
 						}

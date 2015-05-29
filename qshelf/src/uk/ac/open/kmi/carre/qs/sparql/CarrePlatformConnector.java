@@ -19,10 +19,18 @@ import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Properties;
+import java.util.logging.Logger;
 
+import com.hp.hpl.jena.rdf.model.Literal;
 import com.hp.hpl.jena.rdf.model.RDFNode;
+import com.hp.hpl.jena.rdf.model.Resource;
 
+import uk.ac.open.kmi.carre.qs.service.iHealth.OAuth2AccessToken;
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 import virtuoso.jdbc4.VirtuosoConnection;
 import virtuoso.jdbc4.VirtuosoConnectionPoolDataSource;
@@ -35,6 +43,7 @@ import javax.sql.PooledConnection;
  * Created by gg3964 on 04/07/2014.
  */
 public class CarrePlatformConnector {
+	private static Logger logger = Logger.getLogger(CarrePlatformConnector.class.getName());
 
 	private String DB_USERNAME = "";
 	private String DB_PASSWORD = "";
@@ -45,6 +54,13 @@ public class CarrePlatformConnector {
 	protected String upassw;
 	protected String endpoint = "";
 	protected Boolean loggedIn;
+
+	public static void main(String[] args) {
+		String sparql = "";
+		CarrePlatformConnector connector = new CarrePlatformConnector("/Users/allanthird/Work/workspaces/git/qshelf2/qshelf/WebContent/WEB-INF/config.properties");
+		ResultSet results = connector.executeSPARQL(sparql);
+		logger.finer("getRowNumber: " + results.getRowNumber());
+	}
 
 	public CarrePlatformConnector(String propertiesPath){
 		Properties properties = new Properties();
@@ -92,7 +108,7 @@ public class CarrePlatformConnector {
 				return rs;
 			//            System.out.println(rs);
 		} catch (Exception e){
-			System.out.println(e.getMessage());
+			logger.finer(e.getMessage());
 			return e.hashCode();
 		}
 		return 0;
@@ -109,10 +125,11 @@ public class CarrePlatformConnector {
 			}
 			query += "\n";
 			query += sparql;
-			System.err.println(query);
+			logger.finer(query);
 			Query sparqlQuery = QueryFactory.create(query);
 			VirtuosoQueryExecution vqe = VirtuosoQueryExecutionFactory.create(sparqlQuery, set);
-			return vqe.execSelect();
+			ResultSet results = vqe.execSelect();
+			return results;
 		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
@@ -122,8 +139,8 @@ public class CarrePlatformConnector {
 	public Boolean insertTriples(String user, String triples) {
 		VirtGraph set;
 		try {
-			if (user.contains(CARREVocabulary.USER_URL)) {
-				user = user.replace(CARREVocabulary.USER_URL, "");
+			if (user.contains(CARREVocabulary.BASE_URL) || user.contains(CARREVocabulary.SECURE_BASE_URL)) {
+				user = user.substring(user.lastIndexOf("/") + 1);
 			}
 			set = new VirtGraph (endpoint, DB_USERNAME, DB_PASSWORD);
 			String query = "";
@@ -132,13 +149,13 @@ public class CarrePlatformConnector {
 			}
 			query += "\n";
 			query += "INSERT IN <" + CARREVocabulary.USER_URL + user + "> {\n" + triples + "}";
-			System.err.println(query);
+			logger.finer(query);
 			VirtuosoUpdateRequest vur = VirtuosoUpdateFactory.create(query, set);
 			vur.exec();
-			
+
 
 		} catch (Exception e){
-			System.out.println(e.getMessage());
+			logger.finer(e.getMessage());
 			return false;
 		}
 
@@ -154,37 +171,63 @@ public class CarrePlatformConnector {
 			vur.exec();
 
 		} catch (Exception e){
-			System.out.println(e.getMessage());
+			logger.finer(e.getMessage());
 			return false;
 		}
 
 		return true;
 	}//function
 
-	public Boolean updateRefreshToken(String connectionURI, String newRefreshToken) {
+	public Boolean updateTripleObject(String username, String subject, String predicate, String object) {
 		VirtGraph set;
 		try {
 			set = new VirtGraph (endpoint, DB_USERNAME, DB_PASSWORD);
-			String query = "";
+			String prefices = "";
 			for (String prefix : CARREVocabulary.PREFICES) {
-				query += "PREFIX " + prefix + "\n";
+				prefices += "PREFIX " + prefix + "\n";
 			}
-			query += "\n";
-			query += "WITH <" + CARREVocabulary.USER_URL + uname 
+			prefices += "\n";
+			String query = "" + prefices;
+			/*query += "WITH <" + CARREVocabulary.USER_URL + uname 
 					+ ">\n DELETE { <" + connectionURI + "> <" + CARREVocabulary.REFRESH_TOKEN_PREDICATE + "> ?token }\n"
-					+ "INSERT { <" + connectionURI + "> <" + CARREVocabulary.REFRESH_TOKEN_PREDICATE + "> \"" + newRefreshToken + "\"^^xsd:string }\n"
+					+ "INSERT { <" + connectionURI + "> <" + CARREVocabulary.REFRESH_TOKEN_PREDICATE + "> \"" + newAccessToken + "\"^^xsd:string }\n"
 					+ "WHERE \n"
-					+ "{ <" + connectionURI + "> <" + CARREVocabulary.REFRESH_TOKEN_PREDICATE + "> ?token } ";
-			System.err.println(query);
+					+ "{ <" + connectionURI + "> <" + CARREVocabulary.REFRESH_TOKEN_PREDICATE + "> ?token } ";*/
+			query += "WITH <" + CARREVocabulary.USER_URL + username 
+					+ ">\n DELETE { ?subject ?predicate ?object } WHERE { ?subject ?predicate ?object . <" 
+					+ subject + "> " + predicate + " ?object } \n";
+			logger.finer(query);
 			VirtuosoUpdateRequest vur = VirtuosoUpdateFactory.create(query, set);
 			vur.exec();
+			query = "" + prefices;
+			query	+= "INSERT IN <" + CARREVocabulary.USER_URL + username + "> {\n"
+					+ "<" + subject + "> " + predicate + " " + object + " }\n";
+			logger.finer(query);
+			VirtuosoUpdateRequest vur2 = VirtuosoUpdateFactory.create(query, set);
+			vur2.exec();
 
 		} catch (Exception e){
-			System.out.println(e.getMessage());
+			logger.finer(e.getMessage());
 			return false;
 		}
 
 		return true;
 	}
-	
+
 }//class
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

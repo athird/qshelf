@@ -1,17 +1,23 @@
 package uk.ac.open.kmi.carre.qs.service.iHealth;
 
 import java.lang.reflect.Field;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
+import java.util.logging.Logger;
 
 import org.apache.commons.lang.time.DateFormatUtils;
 import org.scribe.model.Token;
 
 import uk.ac.open.kmi.carre.qs.service.RDFAbleToken;
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
-public class IHealthAccessToken extends RDFAbleToken {
+public class OAuth2AccessToken extends RDFAbleToken {
+	private static Logger logger = Logger.getLogger(OAuth2AccessToken.class.getName());
 	
 	/**
 	 * 
@@ -25,12 +31,14 @@ public class IHealthAccessToken extends RDFAbleToken {
 	private String expires;
 	private String refreshToken;
 	private String userId;
+	private Date expiresAt;
+	private String connectionURI;
 	
-	public IHealthAccessToken(String token, String secret, String rawResponse) {
+	public OAuth2AccessToken(String token, String secret, String rawResponse) {
 		super(token, secret, rawResponse);
 	}
 
-	public IHealthAccessToken(String token, String secret) {
+	public OAuth2AccessToken(String token, String secret) {
 		super(token, secret);
 	}
 	
@@ -65,6 +73,32 @@ public class IHealthAccessToken extends RDFAbleToken {
 	
 	public String getUserId() {
 		return userId;
+	}
+	
+	public Date getExpiresAt() {
+		return expiresAt;
+	}
+
+	public void setExpiresAt(Date expiresAt) {
+		this.expiresAt = expiresAt;
+	}
+
+	public String getConnectionURI() {
+		return connectionURI;
+	}
+
+	public void setConnectionURI(String connectionURI) {
+		this.connectionURI = connectionURI;
+	}
+
+	public String getRDFDate(Date date) {
+		String literal = "";
+		DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
+	    df.setTimeZone(TimeZone.getTimeZone("UTC"));
+		literal = "\"" + 
+				df.format(date)
+				+ "\"" + CARREVocabulary.DATE_TYPE;
+		return literal;
 	}
 	
 	public String toRDFString(String id) {

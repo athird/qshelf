@@ -10,6 +10,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
+import java.util.logging.Logger;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -46,11 +47,13 @@ import uk.ac.open.kmi.carre.qs.metrics.SleepRecord;
 import uk.ac.open.kmi.carre.qs.metrics.Weight;
 import uk.ac.open.kmi.carre.qs.service.RDFAbleToken;
 import uk.ac.open.kmi.carre.qs.service.Service;
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.sparql.CarrePlatformConnector;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
 public class FitbitService extends Service {
-
+	private static Logger logger = Logger.getLogger(FitbitService.class.getName());
+	
 	public FitbitService(String propertiesPath) {
 		super(propertiesPath);
 	}
@@ -83,19 +86,9 @@ public class FitbitService extends Service {
 	public static final String PROVENANCE = RDF_SERVICE_NAME;
 
 	@Override
-	public void handleNotification(HttpServletRequest request, HttpServletResponse response) {
-		String json = "";
-		try {
-			BufferedReader reader = request.getReader();
-			String line = reader.readLine();
-			while (line != null) {
-				json += line;
-				line = reader.readLine();
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+	public void handleNotification(String requestContent) {
+		String json = requestContent;
+		
 		JSONArray jsonArray = (JSONArray) JSONValue.parse(json);
 		for (int i = 0; i < jsonArray.size(); i++) {
 			JSONObject notifyJson = (JSONObject) jsonArray.get(i);
@@ -104,7 +97,7 @@ public class FitbitService extends Service {
 			String ownerId = (String) notifyJson.get("ownerId");
 			String ownerType = (String) notifyJson.get("ownerType");
 			String subscriptionId = (String) notifyJson.get("subscriptionId");
-			System.err.println(collectionType + ", " +dateString + ", " +ownerId + 
+			logger.finer(collectionType + ", " +dateString + ", " +ownerId + 
 					", " +ownerType + ", " + subscriptionId);
 			handleNotification(collectionType, dateString, ownerId, 
 					ownerType, subscriptionId);
@@ -114,8 +107,8 @@ public class FitbitService extends Service {
 	}
 
 	public void handleNotification(String collectionType, String dateString,
-			String ownerId, String ownerType, String subscriptionId) {
-		RDFAbleToken token = getTokenForUser(subscriptionId);
+			String ownerId, String ownerType, String carreUserId) {
+		RDFAbleToken token = getTokenForUser(carreUserId);
 		if (token != null ) {
 			RDFAbleToken oldAccessToken = accessToken;
 			accessToken = token;
@@ -152,25 +145,25 @@ public class FitbitService extends Service {
 			}
 			String rdf = "";
 			for (Metric metric : newMetrics) {
-				rdf += metric.getMeasuredByRDF(PROVENANCE);
-				rdf += metric.toRDFString();
+				rdf += metric.getMeasuredByRDF(PROVENANCE, carreUserId);
+				rdf += metric.toRDFString(carreUserId);
 			}
 			accessToken = oldAccessToken;
 
-			System.err.println(rdf);
+			logger.info(rdf);
 			if (!rdf.equals("")) {
 				CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
 				boolean success = true;
 				List<String> triples = Service.chunkRDF(rdf);
 				for (String tripleSet : triples) {
-					success &= connector.insertTriples(subscriptionId, tripleSet);
+					success &= connector.insertTriples(carreUserId, tripleSet);
 				}
 				if (!success) {
-					System.err.println("Failed to insert triples.");
+					logger.finer("Failed to insert triples.");
 				}
 			}
 		} else {
-			System.err.println("Token was null!");
+			logger.finer("Token was null!");
 		}
 	}
 
@@ -183,19 +176,19 @@ public class FitbitService extends Service {
 				"?connection <" + 
 				CARREVocabulary.ACCESS_TOKEN_SECRET_PREDICATE + "> ?oauth_secret. }";
 
-		System.err.println(sparql);
+		logger.finer(sparql);
 		ResultSet results = connector.executeSPARQL(sparql);
 		while (results.hasNext()) {
 			QuerySolution solution =  results.next();
 			Literal tokenLiteral = solution.getLiteral("oauth_token");
 			Literal secretLiteral = solution.getLiteral("oauth_secret");
 			if (tokenLiteral == null || secretLiteral == null) {
-				System.err.println("Token or secret literal is null!");
+				logger.finer("Token or secret literal is null!");
 				return null;
 			}
 			String oauth_token = tokenLiteral.getString();
 			String oauth_secret = secretLiteral.getString();
-			System.err.println("token literal is " + oauth_token + 
+			logger.finer("token literal is " + oauth_token + 
 					", secret literal is " + oauth_secret);
 			RDFAbleToken token = new RDFAbleToken(oauth_token, oauth_secret);
 			return token;
@@ -226,17 +219,17 @@ public class FitbitService extends Service {
 		if (!((oauthToken != null && !oauthToken.equals("")) ||
 				oauthTokenSecret != null && !oauthTokenSecret.equals(""))) {
 			Token requestToken = service.getRequestToken();
-			System.err.println("RequestToken:" + requestToken.getToken() 
+			logger.finer("RequestToken:" + requestToken.getToken() 
 					+ ", " + requestToken.getSecret());
 			request.getSession().setAttribute(machineName + "reqtoken", requestToken.getToken());
 			request.getSession().setAttribute(machineName + "reqsec", requestToken.getSecret());
 
 			String authURL= service.getAuthorizationUrl(requestToken);
 
-			System.err.println(authURL);
+			logger.finer(authURL);
 			return response.encodeRedirectURL(authURL);
 		} else {
-			System.err.println("oauthTokenSecret" + oauthTokenSecret);
+			logger.finer("oauthTokenSecret" + oauthTokenSecret);
 			Verifier verifier = new Verifier(oauthTokenSecret);
 			Token requestToken = new Token((String) request.getSession().getAttribute(machineName + "reqtoken"),
 					(String) request.getSession().getAttribute(machineName + "reqsec"));
@@ -244,8 +237,8 @@ public class FitbitService extends Service {
 			Token tmpAccessToken = service.getAccessToken(requestToken, verifier);//, useridParameter);
 			accessToken = new RDFAbleToken(tmpAccessToken.getToken(), tmpAccessToken.getSecret());
 
-			System.err.println("accessToken: " + accessToken.getToken());
-			System.err.println("accessTokenSecret: " + accessToken.getSecret());
+			logger.finer("accessToken: " + accessToken.getToken());
+			logger.finer("accessTokenSecret: " + accessToken.getSecret());
 
 			Calendar cal = Calendar.getInstance();
 			Date today = cal.getTime();
@@ -257,8 +250,8 @@ public class FitbitService extends Service {
 			List<Metric> metrics = getMetrics(startDate, today);
 
 			for (Metric metric : metrics) {
-				System.err.println(metric.getMeasuredByRDF(PROVENANCE));
-				System.err.println(metric.toRDFString());
+				logger.finer(metric.getMeasuredByRDF(PROVENANCE, CARREVocabulary.DEFAULT_USER_FOR_TESTING));
+				logger.finer(metric.toRDFString(CARREVocabulary.DEFAULT_USER_FOR_TESTING));
 			}
 			return "";
 		}
@@ -569,7 +562,7 @@ public class FitbitService extends Service {
 				SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 				format.setTimeZone(TimeZone.getTimeZone("UTC"));
 				//String noMilliseconds = startTime.split(".")[0];
-				startDate = format.parse(startTime.substring(0, startTime.length() - 4));
+				startDate = format.parse(startTime );
 				//startDate = DateFormat.getInstance().parse(startTime);
 			} catch (ParseException e) {
 				// TODO Auto-generated catch block
@@ -729,11 +722,11 @@ public class FitbitService extends Service {
 	public String makeApiCall(String keyword, Date date) {
 		//Token accessToken = service.getAccessToken(requestToken, verifier);//, useridParameter);
 
-		System.err.println("accessToken: " + accessToken.getToken());
-		System.err.println("accessTokenSecret: " + accessToken.getSecret());
+		logger.finer("accessToken: " + accessToken.getToken());
+		logger.finer("accessTokenSecret: " + accessToken.getSecret());
 
 		String reqURLS = baseURL + "/user/-/profile.json";
-		System.err.println(reqURLS);
+		logger.finer(reqURLS);
 
 		String dateString = DateFormatUtils.format(date, "yyyy-MM-dd",TimeZone.getTimeZone("UTC"));
 		OAuthRequest serviceRequest = new OAuthRequest(Verb.GET, baseURL 
@@ -741,11 +734,11 @@ public class FitbitService extends Service {
 				//+ "/user/-/activities/date/2014-06-05.json");
 				+ "/user/-/" + keyword + "/date/" + dateString + ".json");
 		service.signRequest(accessToken, serviceRequest); 
-		System.err.println(serviceRequest.getUrl());
-		System.err.println(serviceRequest.getCompleteUrl());
+		logger.finer(serviceRequest.getUrl());
+		logger.finer(serviceRequest.getCompleteUrl());
 
 		Response requestResponse = serviceRequest.send();
-		System.out.println(requestResponse.getBody());
+		logger.finer(requestResponse.getBody());
 		return requestResponse.getBody();
 
 	}

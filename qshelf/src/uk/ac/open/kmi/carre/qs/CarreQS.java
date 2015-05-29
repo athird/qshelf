@@ -11,6 +11,7 @@ import java.security.GeneralSecurityException;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.logging.Logger;
 import java.util.List;
 
 
@@ -31,6 +32,7 @@ import org.scribe.model.Verb;
 import org.scribe.model.Verifier;
 import org.scribe.oauth.OAuthService;*/
 
+import org.apache.http.HttpRequest;
 import org.scribe.builder.ServiceBuilder;
 import org.scribe.builder.api.WithingsApi;
 import org.scribe.model.OAuthRequest;
@@ -43,6 +45,7 @@ import org.scribe.oauth.OAuthService;
 
 import uk.ac.open.kmi.carre.qs.service.DefaultService;
 import uk.ac.open.kmi.carre.qs.service.Service;
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.service.withings.WithingsService;
 
 
@@ -54,7 +57,8 @@ import uk.ac.open.kmi.carre.qs.service.withings.WithingsService;
 public class CarreQS extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
-
+	private static Logger logger = Logger.getLogger(CarreQS.class.getName());
+	
 
 	/**
 	 * @see HttpServlet#HttpServlet()

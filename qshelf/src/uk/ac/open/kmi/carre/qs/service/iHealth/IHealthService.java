@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.logging.Logger;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -49,11 +50,13 @@ import uk.ac.open.kmi.carre.qs.metrics.Sleep;
 import uk.ac.open.kmi.carre.qs.metrics.Weight;
 import uk.ac.open.kmi.carre.qs.service.RDFAbleToken;
 import uk.ac.open.kmi.carre.qs.service.Service;
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.service.withings.WithingsService;
 import uk.ac.open.kmi.carre.qs.sparql.CarrePlatformConnector;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
 public class IHealthService extends Service {
+	private static Logger logger = Logger.getLogger(IHealthService.class.getName());
 
 	public static final String name = "iHealth API";
 	public static final String machineName = "iHealth";
@@ -89,13 +92,13 @@ public class IHealthService extends Service {
 	private Map<String,String> apiSerialVersions;
 	private Map<String,String> WHICH_API_NAME;
 
-	private IHealthAccessToken accessToken = null;
+	private OAuth2AccessToken accessToken = null;
 
 	public static final String RDF_SERVICE_NAME = CARREVocabulary.MANUFACTURER_RDF_PREFIX + "ihealth";
 
 
 
-	public static final String PROVENANCE = "carreManufacturer:iHealth";
+	public static final String PROVENANCE = "carreManufacturer:ihealth";
 
 	public IHealthService(String propertiesPath) {
 		super(propertiesPath);
@@ -117,32 +120,18 @@ public class IHealthService extends Service {
 	}
 
 	@Override
-	public void handleNotification(HttpServletRequest request, HttpServletResponse response) {
-		String json = "";
-		try {
-			BufferedReader reader = request.getReader();
-			String line = reader.readLine();
-			while (line != null) {
-				json += line;
-				line = reader.readLine();
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+	public void handleNotification(String requestContent) {
+		String json = requestContent;
 
-		
-/*
- * {"CollectionType":"activity","CollectionUnit":0,"Data":{"Calories":979,"DataId":"af7a583740b34ad4afede12d39080914","DistanceTraveled":0.04368,"Lat":0,"Lon":0,"MeasureTime":"2014-10-08 23:59:59","Note":"","StepLength":78,"TimeZone":"+0100"},"PushId":"46056216d2474d11ae4c6bdb04eb1b30","UserID":"fa07921fe09044329aa64b5fd31a0c0f"}
- */
-		if (json != null || !json.equals("")) {
+
+		if (json != null && !json.equals("")) {
 			JSONArray jsonArray = null;
 			try {
-			jsonArray = (JSONArray) JSONValue.parse(json);
+				jsonArray = (JSONArray) JSONValue.parse(json);
 			} catch (ClassCastException e) {
 				jsonArray = (JSONArray) JSONValue.parse("[ " + json + "]");
 			}
-			System.err.println(json);
+			logger.finer(json);
 			for (int i = 0; i < jsonArray.size(); i++) {
 				JSONObject notifyJson = (JSONObject) jsonArray.get(i);
 				String collectionType = (String) notifyJson.get("CollectionType");
@@ -156,37 +145,37 @@ public class IHealthService extends Service {
 				String userId = (String) notifyJson.get("UserID");
 				String subscriptionId = (String) notifyJson.get("SubscriptionId");
 				String endDateString = (String) notifyJson.get("CARREEndDate");
-				System.err.println(collectionType + ", " +dateString + ", " +userId + 
+				logger.finer(collectionType + ", " +dateString + ", " +userId + 
 						", " + subscriptionId);
 
 				SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 				formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
-			    
+
 				try {
 					Date endDate = null;
 					if (endDateString != null && !endDateString.equals("")) {
 						endDate = formatter.parse(endDateString);
 					}
 					Date mDate = formatter.parse(dateString);
-					IHealthAccessToken userToken = getTokenForUser(userId);
+					OAuth2AccessToken userToken = getTokenForUser(userId);
 					if (userToken == null ) {
-						System.err.println("token is null (notify, beginning)");
+						logger.finer("token is null (notify, beginning)");
 					}
 
 					if (userToken.getUser().equals("")) {
-						System.err.println("Token has no user!");
+						logger.finer("Token has no user!");
 					} else {
-						System.err.println("User: " + userToken.getUser());
+						logger.finer("User: " + userToken.getUser());
 					}
 					if (userToken.getUserId().equals("")) {
-						System.err.println("Token has no userid!");
+						logger.finer("Token has no userid!");
 					} else {
-						System.err.println("User Id: " + userToken.getUserId());
+						logger.finer("User Id: " + userToken.getUserId());
 					}
 					if (userToken != null && !userToken.getUser().equals("")) {
 						String user = userToken.getUser();
-						System.err.println(user);
-						IHealthAccessToken oldAccessToken = accessToken;
+						logger.finer(user);
+						OAuth2AccessToken oldAccessToken = accessToken;
 						accessToken = userToken;
 
 						OAuthService service = new ServiceBuilder()
@@ -231,15 +220,16 @@ public class IHealthService extends Service {
 							newMetrics.addAll(getMetrics(mDate, endDate));
 						}
 
+						String carreUserId = user.substring(user.lastIndexOf("/") + 1);
 
 						String rdf = "";
 						for (Metric metric : newMetrics) {
-							rdf += metric.getMeasuredByRDF(PROVENANCE);
-							rdf += metric.toRDFString();
+							rdf += metric.getMeasuredByRDF(PROVENANCE, carreUserId);
+							rdf += metric.toRDFString(carreUserId);
 						}
 						accessToken = oldAccessToken;
 
-						System.err.println(rdf);
+						logger.finer(rdf);
 						if (!rdf.equals("")) {
 							CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
 							boolean success = true;
@@ -248,7 +238,7 @@ public class IHealthService extends Service {
 								success &= connector.insertTriples(user, tripleSet);
 							}
 							if (!success) {
-								System.err.println("Failed to insert triples.");
+								logger.finer("Failed to insert triples.");
 							}
 						}
 					}
@@ -260,9 +250,9 @@ public class IHealthService extends Service {
 
 	}
 
-	public IHealthAccessToken getTokenForUser(String userId) {
+	public OAuth2AccessToken getTokenForUser(String userId) {
 		CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
-		String sparql = "SELECT ?connection ?user ?oauth_token ?expires ?refresh_token WHERE {\n" + //?apinames 
+		String sparql = "SELECT ?connection ?user ?oauth_token ?expires ?refresh_token ?expires_at WHERE {\n" + //?apinames 
 				"GRAPH ?user {\n ?connection <"+ CARREVocabulary.HAS_MANUFACTURER + "> "
 				+ RDF_SERVICE_NAME + ".\n " +
 				" ?connection <" + 
@@ -273,15 +263,17 @@ public class IHealthService extends Service {
 				+ CARREVocabulary.REFRESH_TOKEN_PREDICATE + "> ?refresh_token.\n" +
 				" ?connection <" 
 				+ CARREVocabulary.EXPIRES_TOKEN_PREDICATE + "> ?expires.\n" +
+				" ?connection <" 
+				+ CARREVocabulary.EXPIRES_AT_PREDICATE + "> ?expires_at.\n" +
 				//				" ?connection <" 
 				//				+ CARREVocabulary.APINAMES_TOKEN_PREDICATE + "> ?apinames.\n" +
 				////				" ?connection <" + 
 				//				CARREVocabulary.ACCESS_TOKEN_SECRET_PREDICATE + "> ?oauth_secret." 
 				" }\n}\n";
 
-		System.err.println(sparql);
+		logger.finer(sparql);
 		ResultSet results = connector.executeSPARQL(sparql);
-		IHealthAccessToken token = null;
+		OAuth2AccessToken token = null;
 		String connection = "";
 		while (results.hasNext()) {
 			QuerySolution solution =  results.next();
@@ -290,14 +282,15 @@ public class IHealthService extends Service {
 			Literal expiresLiteral = solution.getLiteral("expires");
 			Literal refreshLiteral = solution.getLiteral("refresh_token");
 			//Literal apiNamesLiteral = solution.getLiteral("apinames");
+			Literal expiresAtLiteral = solution.getLiteral("expires_at");
 
 			Resource userResource = solution.getResource("user");
 			Resource connectionResource = solution.getResource("connection");
 			if (tokenLiteral == null || userResource == null
 					|| expiresLiteral == null || refreshLiteral == null
-					|| connectionResource == null) {
+					|| connectionResource == null || expiresAtLiteral == null) {
 				//|| apiNamesLiteral == null) {
-				System.err.println("One of the authentication details is null!");
+				logger.finer("One of the authentication details is null!");
 				return null;
 			}
 			String oauth_token = tokenLiteral.getString();
@@ -305,28 +298,107 @@ public class IHealthService extends Service {
 			String expires = expiresLiteral.getString();
 			String refresh_token = refreshLiteral.getString();
 			String apiNames = refreshLiteral.getString();
+			String expiresAt = expiresAtLiteral.getString();
 
 			String user = userResource.getURI();
 			connection = connectionResource.getURI();
 
-			System.err.println("token literal is " + oauth_token + 
+			logger.finer("token literal is " + oauth_token + 
 					//", secret literal is " + oauth_secret + 
 					", user is " + user +
 					", expires is " + expires +
 					", refresh_token is " + refresh_token +
-					", apiNames is " + apiNames);
-			token = new IHealthAccessToken(oauth_token, "");
+					", apiNames is " + apiNames +
+					", expires_at is " + expiresAt);
+			Date expiresAtDate = null;
+			SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+			try {
+				expiresAtDate = format.parse(expiresAt);
+			} catch (ParseException e) {
+				try {
+					//2015-01-22T10:38Z
+					SimpleDateFormat format2 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+					expiresAtDate = format2.parse(expiresAt);
+				} catch (ParseException f) {
+					try {
+						expiresAtDate = format.parse(expiresAt.substring(0,expiresAt.length() - 4));
+					} catch (ParseException g) {
+						try {
+							SimpleDateFormat format3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+							expiresAtDate = format3.parse(expiresAt);
+						} catch (ParseException h) {
+							try {
+								String simplifiedDate = expiresAt.replaceAll("([0-9])T([0-9])", "$1 $2");
+								simplifiedDate = simplifiedDate.replaceAll("Z", "");
+								SimpleDateFormat format4 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+								expiresAtDate = format4.parse(simplifiedDate);
+							} catch (ParseException i) {
+								logger.finer("Couldn't parse RDF date.");
+							}
+						}
+					}
+				}
+			}
+			if (expiresAtDate == null) {
+				format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm");
+				try {
+					expiresAtDate = format.parse(expiresAt);
+				} catch (ParseException e) {
+					try {
+						//2015-01-22T10:38Z
+						SimpleDateFormat format2 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
+						expiresAtDate = format2.parse(expiresAt);
+					} catch (ParseException f) {
+						try {
+							expiresAtDate = format.parse(expiresAt.substring(0,expiresAt.length() - 4));
+						} catch (ParseException g) {
+							try {
+								SimpleDateFormat format3 = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+								expiresAtDate = format3.parse(expiresAt);
+							} catch (ParseException h) {
+								try {
+									String simplifiedDate = expiresAt.replaceAll("([0-9])T([0-9])", "$1 $2");
+									simplifiedDate = simplifiedDate.replaceAll("Z", "");
+									SimpleDateFormat format4 = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+									expiresAtDate = format4.parse(simplifiedDate);
+								} catch (ParseException i) {
+									logger.finer("Couldn't parse RDF date.");
+								}
+							}
+						}
+					}
+				}
+			}
+
+			token = new OAuth2AccessToken(oauth_token, "");
 			//token.setApiNames(apiNames);
 			token.setExpires(expires);
 			token.setRefreshToken(refresh_token);
 			token.setUserId(userId);
 			token.setUser(user);
+			if (expiresAtDate != null) {
+				token.setExpiresAt(expiresAtDate);
+			}
+			token.setConnectionURI(connection);
 		}
-		System.err.println("Returning access token.");
+
+		logger.finer("Returning access token.");
 		if (token == null ) {
-			System.err.println("token is null (sparql, end");
+			logger.finer("token is null (sparql, end");
 		}
-		return getIHealthAccessToken(connection, token);
+
+		Date today = Calendar.getInstance().getTime();
+		if (token.getExpiresAt() != null && today.after(token.getExpiresAt())) {
+			OAuth2AccessToken newToken = getOAuth2AccessToken( token);
+			String newDateString = newToken.getRDFDate(newToken.getExpiresAt());
+			String carreUserId = token.getUser().substring(token.getUser().lastIndexOf("/") + 1);
+
+			connector.updateTripleObject(carreUserId,  connection , "<" + CARREVocabulary.ACCESS_TOKEN_PREDICATE + ">", newToken.getToken());
+			connector.updateTripleObject(carreUserId,  connection , "<" + CARREVocabulary.EXPIRES_AT_PREDICATE + ">", newDateString);
+			return newToken;
+		} else {
+			return token;
+		}
 	}
 
 
@@ -367,13 +439,13 @@ public class IHealthService extends Service {
 				BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
 
 				JSONObject results = (JSONObject) JSONValue.parse(br);
-				accessToken = getIHealthAccessToken(results);
-				System.err.println("APINames: " + accessToken.getApiNames());
-				System.err.println("access token: " + accessToken.getToken());
-				System.err.println("secret: " + accessToken.getSecret());
-				System.err.println("userid: " + accessToken.getUserId());
-				System.err.println("expires: " + accessToken.getExpires());
-				System.err.println("refresh token: " + accessToken.getRefreshToken());
+				accessToken = getOAuth2AccessToken(results, null);
+				logger.finer("APINames: " + accessToken.getApiNames());
+				logger.finer("access token: " + accessToken.getToken());
+				logger.finer("secret: " + accessToken.getSecret());
+				logger.finer("userid: " + accessToken.getUserId());
+				logger.finer("expires: " + accessToken.getExpires());
+				logger.finer("refresh token: " + accessToken.getRefreshToken());
 
 				Calendar cal = Calendar.getInstance();
 				cal.set(2014, 06, 12);
@@ -382,7 +454,8 @@ public class IHealthService extends Service {
 				List<Metric> metrics = getMetrics(null, null);//cal.getTime(), cal2.getTime());
 				if (metrics != null ) {
 					for (Metric metric : metrics) {
-						System.err.println(metric.toRDFString());
+						metric.getMeasuredByRDF(PROVENANCE, CARREVocabulary.DEFAULT_USER_FOR_TESTING);
+						logger.finer(metric.toRDFString(CARREVocabulary.DEFAULT_USER_FOR_TESTING));
 					}
 				}
 			} catch (MalformedURLException e) {
@@ -496,10 +569,10 @@ public class IHealthService extends Service {
 								String arrhythmicStatus = "";
 								switch (isArrhythmic.intValue()) {
 								case 0:
-									arrhythmicStatus = CARREVocabulary.SENSOR_RDF_PREFIX + "no_arrhythmia";
+									arrhythmicStatus = CARREVocabulary.NO_ARRHYTHMIA;
 									break;
 								case 1:
-									arrhythmicStatus = CARREVocabulary.SENSOR_RDF_PREFIX + "arrhythmia_cordis";
+									arrhythmicStatus = CARREVocabulary.ARRHYTHMIA;
 									break;
 								default: 
 									arrhythmicStatus = "";
@@ -562,12 +635,12 @@ public class IHealthService extends Service {
 							//a 'source' string (e.g., "medisana") and the date of the measurement.
 							//whichever you choose, the Weight object should end up with a unique 
 							//identifier for this individual measurement. 
-							
+
 							Weight weight = new Weight(dataID);
-							
+
 							// this setId call is probably not needed, the constructor should do the same
 							weight.setId(dataID);
-							
+
 							//Weight (and its superclass Metric) has methods to add individual pieces of data.
 							//add them in turn.
 							//*IF* there are any fields which are *not* supported by Weight or Metric but which
@@ -597,7 +670,7 @@ public class IHealthService extends Service {
 							}
 							Date date = new Date(measurementDate.longValue() * MILLISECONDS_PER_SECOND);
 							weight.setDate(date);
-							
+
 							//add the Weight object you've created to the List of Metrics which this method returns.
 							results.add(weight);
 						}
@@ -890,7 +963,7 @@ public class IHealthService extends Service {
 	}
 
 
-	public IHealthAccessToken getIHealthAccessToken(String connectionURI, IHealthAccessToken accessToken) {
+	public OAuth2AccessToken getOAuth2AccessToken( OAuth2AccessToken accessToken) {
 		String url = accessTokenURL + "?"
 				+ "client_id=" + oauth_token
 				+ "&client_secret=" + oauth_secret
@@ -898,8 +971,8 @@ public class IHealthService extends Service {
 				+ "&response_type=refresh_token"
 				+ "&refresh_token=" + accessToken.getRefreshToken()
 				+ "&UserID=" + accessToken.getUserId();
-		System.err.println(url);
-		IHealthAccessToken token = null;
+		logger.finer(url);
+		OAuth2AccessToken token = null;
 		try {
 			URL getAccessToken = new URL(url);
 
@@ -907,11 +980,12 @@ public class IHealthService extends Service {
 			BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
 
 			JSONObject results = (JSONObject) JSONValue.parse(br);
-			System.err.println(results.toJSONString());
-			token = getIHealthAccessToken(results);
+			logger.finer(results.toJSONString());
+			token = getOAuth2AccessToken(results, null);
 			token.setUser(accessToken.getUser());
-			if (!token.getRefreshToken().equals(accessToken.getRefreshToken())) {
-				System.err.println("Update refresh tokens here...");
+			token.setConnectionURI(accessToken.getConnectionURI());
+			if (token.getRefreshToken() == null || !token.getRefreshToken().equals(accessToken.getRefreshToken())) {
+				token.setRefreshToken(accessToken.getRefreshToken());
 			}
 
 			return token;
@@ -924,17 +998,29 @@ public class IHealthService extends Service {
 		}
 
 		if (token == null ) {
-			System.err.println("token is null (Token, end)");
+			logger.finer("token is null (Token, end)");
 		}
 		return token;
 	}
 
-	public static IHealthAccessToken getIHealthAccessToken(JSONObject results) {
+	public static OAuth2AccessToken getOAuth2AccessToken(JSONObject results, String refreshToken) {
 		String accessToken = (String) results.get("AccessToken");
-		IHealthAccessToken token = new IHealthAccessToken(accessToken, "");
+		OAuth2AccessToken token = new OAuth2AccessToken(accessToken, "");
 		token.setApiNames((String) results.get("APIName"));
-		token.setExpires("" + (Long) results.get("Expires"));
-		token.setRefreshToken((String) results.get("RefreshToken"));
+		int expires = ((Long) results.get("Expires")).intValue();
+		token.setExpires("" + expires);
+		if (refreshToken != null && refreshToken.equals("")) {
+			String newRefreshToken = (String) results.get("RefreshToken");
+			if (newRefreshToken != null && !newRefreshToken.equals("")) {
+				token.setRefreshToken(newRefreshToken);
+			}
+		} else if (refreshToken != null) {
+			token.setRefreshToken(refreshToken);
+		}
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.MILLISECOND, expires);
+		Date expiresAt = cal.getTime();
+		token.setExpiresAt(expiresAt);
 		if (results.get("UserID") != null) {
 			token.setUserId((String) results.get("UserID"));
 		}
@@ -978,7 +1064,7 @@ public class IHealthService extends Service {
 		/*if (pageIndex != -1) {
 			url += "&page_index=" + pageIndex;
 		}*/
-		System.err.println(url);
+		logger.finer(url);
 
 		results = makeApiCall(url);
 		fullResults += results;
@@ -999,9 +1085,9 @@ public class IHealthService extends Service {
 		OAuthRequest serviceRequest = new OAuthRequest(Verb.GET, url);
 
 		Response requestResponse = serviceRequest.send();
-		System.out.println(requestResponse.getBody());
+		logger.finer(requestResponse.getBody());
 		String results = requestResponse.getBody();
-		System.err.println(results);
+		logger.finer(results);
 		return results;
 	}
 

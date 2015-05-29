@@ -2,12 +2,15 @@ package uk.ac.open.kmi.carre.qs.metrics;
 
 import java.util.Calendar;
 import java.util.Date;
+import java.util.logging.Logger;
 
 import org.apache.commons.lang.time.DateFormatUtils;
 
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
 public class Weight extends Metric {
+	private static Logger logger = Logger.getLogger(Weight.class.getName());
 	
 	public static final String METRIC_TYPE = CARREVocabulary.WEIGHT_METRIC;
 	

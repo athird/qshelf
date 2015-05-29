@@ -5,13 +5,16 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.logging.Logger;
 
 import org.apache.commons.lang.time.DateFormatUtils;
 
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
 public class Activity extends Metric {
-
+	private static Logger logger = Logger.getLogger(Activity.class.getName());
+	
 	public static final String METRIC_TYPE = CARREVocabulary.ACTIVITY_METRIC;
 	
 	protected int steps;
@@ -32,9 +35,18 @@ public class Activity extends Metric {
 	protected float intenseActivityDistance;
 	protected float loggedActivityDistance;
 	protected float trackedActivityDistance;
-	protected int loggedActivityDuration;
+	protected long loggedActivityDuration;
 	protected String loggedActivityName;
 	protected String timezone;
+	protected float activityPoints;
+
+	public float getActivityPoints() {
+		return activityPoints;
+	}
+
+	public void setActivityPoints(float activityPoints) {
+		this.activityPoints = activityPoints;
+	}
 
 	public Activity(String identifier) {
 		super(identifier);
@@ -64,6 +76,7 @@ public class Activity extends Metric {
 		setTrackedActivityDistance(NO_VALUE_PROVIDED);
 		setLoggedActivityDuration(NO_VALUE_PROVIDED);
 		setLoggedActivityName("");
+		setActivityPoints(NO_VALUE_PROVIDED);
 		setNote("");
 		setTimezone("");
 		
@@ -221,11 +234,11 @@ public class Activity extends Metric {
 		this.trackedActivityDistance = trackedActivityDistance;
 	}
 
-	public int getLoggedActivityDuration() {
+	public long getLoggedActivityDuration() {
 		return loggedActivityDuration;
 	}
 
-	public void setLoggedActivityDuration(int loggedActivityDuration) {
+	public void setLoggedActivityDuration(long loggedActivityDuration) {
 		this.loggedActivityDuration = loggedActivityDuration;
 	}
 
@@ -236,7 +249,7 @@ public class Activity extends Metric {
 	public void setLoggedActivityName(String loggedActivityName) {
 		this.loggedActivityName = loggedActivityName;
 	}
-
+	
 	public String getTimezone() {
 		return timezone;
 	}

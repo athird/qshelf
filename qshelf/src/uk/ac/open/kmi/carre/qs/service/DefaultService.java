@@ -2,11 +2,14 @@ package uk.ac.open.kmi.carre.qs.service;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.logging.Logger;
 
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.service.withings.WithingsService;
 
 public class DefaultService {
-
+	private static Logger logger = Logger.getLogger(DefaultService.class.getName());
+	
 	public static Service defaultService;
 
 	public DefaultService(String propertiesPath) {

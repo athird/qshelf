@@ -1,11 +1,15 @@
 package uk.ac.open.kmi.carre.qs.service;
 
 import java.lang.reflect.Field;
+import java.util.logging.Logger;
 
 import org.scribe.model.Token;
 
-public class RDFAbleToken extends Token {
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 
+public class RDFAbleToken extends Token {
+	private static Logger logger = Logger.getLogger(RDFAbleToken.class.getName());
+	
 	public static final String RDF_PREFIX = "http://carre.kmi.open.ac.uk/ontology/sensors.owl#";
 	private String user = "";
 	

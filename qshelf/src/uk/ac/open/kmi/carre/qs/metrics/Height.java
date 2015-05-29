@@ -1,10 +1,13 @@
 package uk.ac.open.kmi.carre.qs.metrics;
 
 import java.util.Date;
+import java.util.logging.Logger;
 
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
 public class Height extends Metric {
+	private static Logger logger = Logger.getLogger(Height.class.getName());
 	
 	public static final String METRIC_TYPE = CARREVocabulary.HEIGHT_METRIC;
 	

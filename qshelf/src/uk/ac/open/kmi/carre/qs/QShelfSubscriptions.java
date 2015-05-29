@@ -9,8 +9,13 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.util.AbstractMap;
+import java.util.Enumeration;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 import java.util.List;
 
 
@@ -45,7 +50,10 @@ import uk.ac.open.kmi.carre.qs.service.DefaultService;
 import uk.ac.open.kmi.carre.qs.service.Service;
 import uk.ac.open.kmi.carre.qs.service.fitbit.FitbitService;
 import uk.ac.open.kmi.carre.qs.service.iHealth.IHealthService;
+import uk.ac.open.kmi.carre.qs.service.medisana.MedisanaService;
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.service.withings.WithingsService;
+import uk.ac.open.kmi.carre.qs.service.googlefit.GooglefitService;
 
 
 
@@ -54,22 +62,47 @@ import uk.ac.open.kmi.carre.qs.service.withings.WithingsService;
  */
 
 public class QShelfSubscriptions extends HttpServlet {
+	private static final int THREAD_POOL_SIZE = 10;
+
 	private static final long serialVersionUID = 1L;
 
-
+	private static Logger logger = Logger.getLogger(QShelfSubscriptions.class.getName());
+	private static ExecutorService executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
 
 	/**
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public QShelfSubscriptions() {
 		super();
+		if (executorService.isShutdown()) {
+			executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+		}
 	}
 
 	/**
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		String pathInfo = request.getPathInfo();
+		Service currentService = null;
+		logger.info("Received get request! pathInfo " + pathInfo);
+		
 		response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+ 		logger.info("Sent NO_CONTENT status.");
+		try {
+			if (pathInfo != null && !(pathInfo.equals(""))) {
+				pathInfo = pathInfo.replaceAll("/", "");
+				currentService = DefaultService.getServiceWithMachineName(pathInfo, 
+						getServletContext().getRealPath("/WEB-INF/config.properties"));
+				currentService.setThreadedRequest(request);
+				executorService.submit(currentService);
+				//currentService.handleNotification(request);
+			} 
+		} catch (Exception e) {
+			e.printStackTrace();
+		} catch (Error e) {
+			e.printStackTrace();
+		}
 	}
 
 	/**
@@ -78,35 +111,47 @@ public class QShelfSubscriptions extends HttpServlet {
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		String pathInfo = request.getPathInfo();
 		Service currentService = null;
-		System.err.println("Received post request! pathInfo " + pathInfo);
-		if (pathInfo.toLowerCase().contains("iHealth".toLowerCase())) {
+		logger.info("Received post request! pathInfo " + pathInfo);
+		if (pathInfo.toLowerCase().contains("iHealth".toLowerCase()) 
+				|| pathInfo.toLowerCase().contains("misfit") 
+				|| pathInfo.toLowerCase().contains("moves")) {
 			response.setStatus(HttpServletResponse.SC_OK);
-			System.err.println("Sent OK status.");
+			logger.info("Sent OK status.");
 		} else {
 			response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-			System.err.println("Sent NO_CONTENT status.");
+			logger.info("Sent NO_CONTENT status.");
 		}
-
-		if (pathInfo != null && !(pathInfo.equals(""))) {
-			pathInfo = pathInfo.replaceAll("/", "");
-			System.err.println("pathInfo isn't null: " + pathInfo);
-			currentService = DefaultService.getServiceWithMachineName(pathInfo, 
-					getServletContext().getRealPath("/WEB-INF/config.properties"));
-			currentService.handleNotification(request, response);
-		} 
-
-	}
-
-	private Service getServiceByName(String name, String propertiesPath) {
-		if(name.equals("fitbit")) {
-			System.err.println("Creating Fitbit service.");
-			return new FitbitService(propertiesPath);
-		} else if (name.equalsIgnoreCase("ihealth")) {
-			return new IHealthService(propertiesPath);
-		} else if (name.equals("withings")) {
-			return new WithingsService(propertiesPath);
+		try {
+			if (pathInfo != null && !(pathInfo.equals(""))) {
+				pathInfo = pathInfo.replaceAll("/", "");
+				currentService = DefaultService.getServiceWithMachineName(pathInfo, 
+						getServletContext().getRealPath("/WEB-INF/config.properties"));
+				currentService.setThreadedRequest(request);
+				executorService.submit(currentService);
+				//currentService.handleNotification(request);
+			} 
+		} catch (Exception e) {
+			e.printStackTrace();
+		} catch (Error e) {
+			e.printStackTrace();
 		}
-		return null;
 	}
-
+	
+	public void destroy() {
+		executorService.shutdown();
+		try {
+		     // Wait a while for existing tasks to terminate
+		     if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+		       executorService.shutdownNow(); // Cancel currently executing tasks
+		       // Wait a while for tasks to respond to being cancelled
+		       if (!executorService.awaitTermination(60, TimeUnit.SECONDS))
+		           System.err.println("Pool did not terminate");
+		     }
+		   } catch (InterruptedException ie) {
+		     // (Re-)Cancel if current thread also interrupted
+		     executorService.shutdownNow();
+		     // Preserve interrupt status
+		     Thread.currentThread().interrupt();
+		   }
+	}
 }

@@ -1,11 +1,14 @@
 package uk.ac.open.kmi.carre.qs.metrics;
 
 import java.util.Date;
+import java.util.logging.Logger;
 
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
 public class Food extends Metric {
-
+	private static Logger logger = Logger.getLogger(Food.class.getName());
+	
 	public static final String METRIC_TYPE = CARREVocabulary.FOOD_METRIC;
 	
     protected double calories;

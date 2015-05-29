@@ -1,15 +1,18 @@
 package uk.ac.open.kmi.carre.qs.metrics;
 
 import java.util.Date;
+import java.util.logging.Logger;
 
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
 public class BloodPressure extends Metric {
-
+	private static Logger logger = Logger.getLogger(BloodPressure.class.getName());
+	
 	public static final String METRIC_TYPE = CARREVocabulary.BLOOD_PRESSURE_METRIC;
 			
-	protected long systolicBloodPressure;
-	protected long diastolicBloodPressure;
+	protected long bloodPressureSystolic;
+	protected long bloodPressureDiastolic;
 	protected String arrhythmiaType;
 	protected int whoBPLevel;
 	
@@ -23,27 +26,27 @@ public class BloodPressure extends Metric {
 
 	@Override
 	protected void initialiseEmpty() {
-		systolicBloodPressure = NO_VALUE_PROVIDED;
-		diastolicBloodPressure = NO_VALUE_PROVIDED;
+		bloodPressureSystolic = NO_VALUE_PROVIDED;
+		bloodPressureDiastolic = NO_VALUE_PROVIDED;
 		whoBPLevel = NO_VALUE_PROVIDED;
 		setArrhythmiaType("");
 		setNote("");
 	}
 
 	public long getSystolicBloodPressure() {
-		return systolicBloodPressure;
+		return bloodPressureSystolic;
 	}
 
 	public void setSystolicBloodPressure(long systolicBloodPressure) {
-		this.systolicBloodPressure = systolicBloodPressure;
+		this.bloodPressureSystolic = systolicBloodPressure;
 	}
 
 	public long getDiastolicBloodPressure() {
-		return diastolicBloodPressure;
+		return bloodPressureDiastolic;
 	}
 
 	public void setDiastolicBloodPressure(long diastolicBloodPressure) {
-		this.diastolicBloodPressure = diastolicBloodPressure;
+		this.bloodPressureDiastolic = diastolicBloodPressure;
 	}
 
 	public String getArrhythmiaType() {

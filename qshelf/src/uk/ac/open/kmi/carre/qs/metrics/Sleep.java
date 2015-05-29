@@ -3,10 +3,13 @@ package uk.ac.open.kmi.carre.qs.metrics;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.logging.Logger;
 
+import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
 public class Sleep extends Metric {
+	private static Logger logger = Logger.getLogger(Sleep.class.getName());
 	
 	public static final String METRIC_TYPE = CARREVocabulary.SLEEP_METRIC;
 			
@@ -192,10 +195,10 @@ public class Sleep extends Metric {
 	}
 
 	@Override
-	public String toRDFString() {
-		String rdf = super.toRDFString();
+	public String toRDFString(String userId) {
+		String rdf = super.toRDFString( userId);
 		for (SleepRecord record : getSleepRecords()) {
-			rdf += record.toRDFString() + "\n";
+			rdf += record.toRDFString( userId) + "\n";
 		}
 		return rdf;
 	}
