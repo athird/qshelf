@@ -150,7 +150,7 @@ public class FitbitService extends Service {
 			}
 			accessToken = oldAccessToken;
 
-			logger.info(rdf);
+			logger.finer(rdf);
 			if (!rdf.equals("")) {
 				CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
 				boolean success = true;
@@ -260,17 +260,17 @@ public class FitbitService extends Service {
 	@Override
 	public List<Metric> getMetrics(Date startDate, Date endDate) {
 		List<Metric> allMetrics = new ArrayList<Metric>();
-		allMetrics.addAll(getBPs(startDate));
-		allMetrics.addAll(getPulses(startDate));
+		//DEPRECATED by Fitbit allMetrics.addAll(getBPs(startDate));
+		//DEPRECATED by Fitbit allMetrics.addAll(getPulses(startDate));
 		allMetrics.addAll(getWaters(startDate));
 		allMetrics.addAll(getFoods(startDate));
 		allMetrics.addAll(getFat(startDate));
-		allMetrics.addAll(getBody(startDate));
+		//DEPRECATED by Fitbit allMetrics.addAll(getBody(startDate));
 		allMetrics.addAll(getWeight(startDate));
 		allMetrics.addAll(getSleeps(startDate));
 		allMetrics.addAll(getActivities(startDate));
-		allMetrics.addAll(getGlucoses(startDate));
-		allMetrics.addAll(getBPs(startDate));
+		//DEPRECATED by Fitbit allMetrics.addAll(getGlucoses(startDate));
+		//DEPRECATED by Fitbit allMetrics.addAll(getBPs(startDate));
 		return allMetrics;
 	}
 

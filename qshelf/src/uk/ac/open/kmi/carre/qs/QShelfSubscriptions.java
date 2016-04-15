@@ -126,9 +126,22 @@ public class QShelfSubscriptions extends HttpServlet {
 				pathInfo = pathInfo.replaceAll("/", "");
 				currentService = DefaultService.getServiceWithMachineName(pathInfo, 
 						getServletContext().getRealPath("/WEB-INF/config.properties"));
-				currentService.setThreadedRequest(request);
-				executorService.submit(currentService);
-				//currentService.handleNotification(request);
+				//currentService.setThreadedRequest(request);
+				//executorService.submit(currentService);
+				String json = "";
+				try {
+					BufferedReader reader = request.getReader();
+					String line = reader.readLine();
+					while (line != null) {
+						json += line;
+						line = reader.readLine();
+					}
+					logger.finer(json);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				currentService.handleNotification(json);
 			} 
 		} catch (Exception e) {
 			e.printStackTrace();

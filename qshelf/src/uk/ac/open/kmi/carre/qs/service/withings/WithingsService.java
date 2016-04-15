@@ -123,8 +123,8 @@ public class WithingsService extends Service {
 		String json = requestContent;
 		JSONObject jsonObject = (JSONObject) JSONValue.parse(json);
 		if (jsonObject == null) {
-			logger.info("json wouldn't parse.");
-			logger.info(json);
+			logger.finer("json wouldn't parse.");
+			logger.finer(json);
 		}
 		String useridentifier =  (String) jsonObject.get("userid");
 		String startDateString = (String) jsonObject.get("startdate");
@@ -167,7 +167,7 @@ public class WithingsService extends Service {
 			}
 			
 			String userId = subscriptionId.substring(subscriptionId.lastIndexOf("/") + 1);
-			logger.info(userId);
+			logger.finer(userId);
 			
 			String rdf = "";
 			for (Metric metric : newMetrics) {
@@ -181,12 +181,12 @@ public class WithingsService extends Service {
 				CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
 				boolean success = true;
 				List<String> triples = Service.chunkRDF(rdf);
-				logger.info("USERID is " + userId);
+				logger.finer("USERID is " + userId);
 				for (String tripleSet : triples) {
 					success &= connector.insertTriples(userId, tripleSet);
 				}
 				if (!success) {
-					logger.info("Failed to insert triples.");
+					logger.finer("Failed to insert triples.");
 				}
 			}
 			userId = oldUserId;
@@ -205,22 +205,22 @@ public class WithingsService extends Service {
 				" ?connection <" + 
 				CARREVocabulary.ACCESS_TOKEN_SECRET_PREDICATE + "> ?oauth_secret. }\n}\n";
 
-		logger.info(sparql);
+		logger.finer(sparql);
 		ResultSet results = connector.executeSPARQL(sparql);
 		while (results.hasNext()) {
-			logger.info("There are results.");
+			logger.finer("There are results.");
 			QuerySolution solution =  results.next();
 			Literal tokenLiteral = solution.getLiteral("oauth_token");
 			Literal secretLiteral = solution.getLiteral("oauth_secret");
 			Resource userResource = solution.getResource("user");
 			if (tokenLiteral == null || secretLiteral == null || userResource == null) {
-				logger.info("Token, secret literal or user id is null!");
+				logger.finer("Token, secret literal or user id is null!");
 				return null;
 			}
 			String oauth_token = tokenLiteral.getString();
 			String oauth_secret = secretLiteral.getString();
 			String user = userResource.getURI();
-			logger.info("token literal is " + oauth_token + 
+			logger.finer("token literal is " + oauth_token + 
 					", secret literal is " + oauth_secret + 
 					", user is " + user);
 			RDFAbleToken token = new RDFAbleToken(oauth_token, oauth_secret);
@@ -256,17 +256,17 @@ public class WithingsService extends Service {
 		if (!((oauthToken != null && !oauthToken.equals("")) ||
 				oauthTokenSecret != null && !oauthTokenSecret.equals(""))) {
 			Token requestToken = service.getRequestToken();
-			logger.info("RequestToken:" + requestToken.getToken() 
+			logger.finer("RequestToken:" + requestToken.getToken() 
 					+ ", " + requestToken.getSecret());
 			request.getSession().setAttribute(machineName + "reqtoken", requestToken.getToken());
 			request.getSession().setAttribute(machineName + "reqsec", requestToken.getSecret());
 
 			String authURL= service.getAuthorizationUrl(requestToken);
 
-			logger.info(authURL);
+			logger.finer(authURL);
 			return response.encodeRedirectURL(authURL);
 		} else {
-			logger.info("oauthTokenSecret" + oauthTokenSecret);
+			logger.finer("oauthTokenSecret" + oauthTokenSecret);
 			Verifier verifier = new Verifier(oauthTokenSecret);
 			Token requestToken = new Token((String) request.getSession().getAttribute(machineName + "reqtoken"),
 					(String) request.getSession().getAttribute(machineName + "reqsec"));
@@ -274,8 +274,8 @@ public class WithingsService extends Service {
 			Token tmpAccessToken = service.getAccessToken(requestToken, verifier);//, useridParameter);
 			accessToken = new RDFAbleToken(tmpAccessToken.getToken(), tmpAccessToken.getSecret());
 
-			logger.info("accessToken: " + accessToken.getToken());
-			logger.info("accessTokenSecret: " + accessToken.getSecret());
+			logger.finer("accessToken: " + accessToken.getToken());
+			logger.finer("accessTokenSecret: " + accessToken.getSecret());
 			Calendar cal = Calendar.getInstance();
 			Date today = cal.getTime();
 			//cal.set(2014, 03, 28);
@@ -286,8 +286,8 @@ public class WithingsService extends Service {
 			List<Metric> metrics = getMetrics(startDate, today);
 
 			for (Metric metric : metrics) {
-				logger.info(metric.getMeasuredByRDF(PROVENANCE, CARREVocabulary.DEFAULT_USER_FOR_TESTING));
-				logger.info(metric.toRDFString(CARREVocabulary.DEFAULT_USER_FOR_TESTING));
+				logger.finer(metric.getMeasuredByRDF(PROVENANCE, CARREVocabulary.DEFAULT_USER_FOR_TESTING));
+				logger.finer(metric.toRDFString(CARREVocabulary.DEFAULT_USER_FOR_TESTING));
 			}
 			return "";
 		}
@@ -438,8 +438,8 @@ public class WithingsService extends Service {
 	public List<Metric> getMetrics(Date startDate, Date endDate) {
 		List<Metric> results = new ArrayList<Metric>();
 		Map<String, String> parameters = getDefaultParams("getmeas");
-		logger.info(DateFormatUtils.format(startDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC")));
-		logger.info(DateFormatUtils.format(endDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC")));
+		logger.finer(DateFormatUtils.format(startDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC")));
+		logger.finer(DateFormatUtils.format(endDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC")));
 		parameters.put("startdate", "" + (startDate.getTime()/MILLISECONDS_PER_SECOND));
 		parameters.put("enddate", "" + (endDate.getTime()/MILLISECONDS_PER_SECOND));
 		parameters.put("category", "" + ACTUAL_MEASUREMENT);
@@ -658,9 +658,9 @@ public class WithingsService extends Service {
 		Map<String,String> parameters = getDefaultParams("getactivity");
 		String dateString = DateFormatUtils.format(date, "yyyy-MM-dd", TimeZone.getTimeZone("UTC"));
 		parameters.put("date", dateString);
-		logger.info(dateString);
+		logger.finer(dateString);
 		String activityRecord = makeApiCall("/v2/measure", parameters);
-		logger.info(activityRecord);
+		logger.finer(activityRecord);
 		return parseActivity(activity, activityRecord);
 	}
 
@@ -671,10 +671,10 @@ public class WithingsService extends Service {
 		String endDateString = DateFormatUtils.format(endDate, "yyyy-MM-dd", TimeZone.getTimeZone("UTC"));
 		parameters.put("startdateymd", startDateString);
 		parameters.put("enddateymd", endDateString);
-		logger.info(startDateString);
-		logger.info(endDateString);
+		logger.finer(startDateString);
+		logger.finer(endDateString);
 		String activityRecord = makeApiCall("/v2/measure", parameters);
-		logger.info(activityRecord);
+		logger.finer(activityRecord);
 		return parseActivityRange(startDate, activities, activityRecord);
 	}
 
@@ -745,10 +745,10 @@ public class WithingsService extends Service {
 		OAuthRequest serviceRequest = new OAuthRequest(HTTP_METHOD, 
 				baseURL + apiMethod);
 
-		logger.info(baseURL + apiMethod);
+		logger.finer(baseURL + apiMethod);
 
 		for (String paramName : parameters.keySet()) {
-			logger.info(paramName + "=" + parameters.get(paramName));
+			logger.finer(paramName + "=" + parameters.get(paramName));
 			serviceRequest.addQuerystringParameter(paramName, 
 					parameters.get(paramName));
 		}
@@ -760,7 +760,7 @@ public class WithingsService extends Service {
 
 		Response requestResponse = serviceRequest.send();
 		String output = requestResponse.getBody();
-		logger.info(output);
+		logger.finer(output);
 		return output;
 	}
 

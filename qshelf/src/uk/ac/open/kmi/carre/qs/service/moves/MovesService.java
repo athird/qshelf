@@ -112,10 +112,10 @@ public class MovesService extends Service {
 		String json = requestContent;
 		JSONObject jsonObject = (JSONObject) JSONValue.parse(json);
 		if (jsonObject == null) {
-			logger.info("json wouldn't parse.");
-			logger.info(json);
+			logger.finer("json wouldn't parse.");
+			logger.finer(json);
 		}
-		logger.info(requestContent);
+		logger.finer(requestContent);
 		String userId = ""; 
 		try {
 			userId = (String) jsonObject.get("userId");
@@ -144,7 +144,7 @@ public class MovesService extends Service {
 			Date endDate = null;
 
 			if (startDateString != null) {
-				logger.info("notification start date " + startDateString);
+				logger.finer("notification start date " + startDateString);
 				try {
 					SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'");
 					startDate = format.parse(startDateString);
@@ -155,7 +155,7 @@ public class MovesService extends Service {
 			}
 
 			if (endDateString != null) {
-				logger.info("notification end date " + endDateString);
+				logger.finer("notification end date " + endDateString);
 				try {
 					SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'");
 					endDate = format.parse(endDateString);
@@ -166,7 +166,7 @@ public class MovesService extends Service {
 			}
 
 			if (lastSegmentStartTime != null) {
-				logger.info("notification last segment start time " + lastSegmentStartTime);
+				logger.finer("notification last segment start time " + lastSegmentStartTime);
 				try {
 					SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'");
 					startDate = format.parse(lastSegmentStartTime);
@@ -189,7 +189,7 @@ public class MovesService extends Service {
 			Date startDate, Date endDate, Integer pastDays) {
 		OAuth2AccessToken token = getTokenForUser(ownerId);
 		if (token != null ) {
-			logger.info("Token is not null.");
+			logger.finer("Token is not null.");
 			OAuth2AccessToken oldAccessToken = accessToken;
 			accessToken = token;
 			if (service == null ) {
@@ -232,8 +232,8 @@ public class MovesService extends Service {
 			}
 			accessToken = oldAccessToken;
 
-			logger.info(rdf);
-			rdf = "";
+			logger.finer(rdf);
+			//rdf = "";
 			if (!rdf.equals("")) {
 				CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
 				boolean success = true;
@@ -242,11 +242,11 @@ public class MovesService extends Service {
 					success &= connector.insertTriples(userId, tripleSet);
 				}
 				if (!success) {
-					logger.info("Failed to insert triples.");
+					logger.finer("Failed to insert triples.");
 				}
 			}
 		} else {
-			logger.info("Token was null!");
+			logger.finer("Token was null!");
 		}
 	}
 
@@ -269,7 +269,7 @@ public class MovesService extends Service {
 				+ CARREVocabulary.EXPIRES_AT_PREDICATE + "> ?expires_at.\n" +
 				"}\n" +
 				"}\n";
-		logger.info(sparql);
+		logger.finer(sparql);
 		String connection = "";
 		ResultSet results = connector.executeSPARQL(sparql);
 		while (results.hasNext()) {
@@ -281,7 +281,7 @@ public class MovesService extends Service {
 			Literal tokenLiteral = solution.getLiteral("oauth_token");
 			Resource userResource = solution.getResource("user");
 			if (tokenLiteral == null || userResource == null) {
-				logger.info("Token or user id is null!");
+				logger.finer("Token or user id is null!");
 				return null;
 			}
 
@@ -300,7 +300,7 @@ public class MovesService extends Service {
 
 			connection = connectionResource.getURI();
 
-			logger.info("token literal is " + oauth_token + 
+			logger.finer("token literal is " + oauth_token + 
 					", user is " + user + 
 					", expires is " + expires +
 					", refresh_token is " + refresh_token +
@@ -328,7 +328,7 @@ public class MovesService extends Service {
 								SimpleDateFormat format4 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 								expiresAtDate = format4.parse(simplifiedDate);
 							} catch (ParseException i) {
-								logger.info("Couldn't parse RDF date.");
+								logger.finer("Couldn't parse RDF date.");
 							}
 						}
 					}
@@ -357,7 +357,7 @@ public class MovesService extends Service {
 									SimpleDateFormat format4 = new SimpleDateFormat("yyyy-MM-dd HH:mm");
 									expiresAtDate = format4.parse(simplifiedDate);
 								} catch (ParseException i) {
-									logger.info("Couldn't parse RDF date.");
+									logger.finer("Couldn't parse RDF date.");
 								}
 							}
 						}
@@ -373,7 +373,7 @@ public class MovesService extends Service {
 			if (expiresAtDate != null) {
 				token.setExpiresAt(expiresAtDate);
 			} else {
-				logger.info("Expires at was null!");
+				logger.finer("Expires at was null!");
 			}
 			token.setConnectionURI(connection);
 
@@ -381,8 +381,8 @@ public class MovesService extends Service {
 			Date today = Calendar.getInstance().getTime();
 			if (token.getExpiresAt() != null && today.after(token.getExpiresAt())) {
 				OAuth2AccessToken newToken = getOAuth2AccessToken( token);
-				logger.info("Retrieving new access token. ");
-				logger.info("token literal is " + newToken.getToken() + 
+				logger.finer("Retrieving new access token. ");
+				logger.finer("token literal is " + newToken.getToken() + 
 						", user is " + user + 
 						", expires is " + newToken.getExpires() +
 						", refresh_token is " + newToken.getRefreshToken() +
@@ -412,7 +412,7 @@ public class MovesService extends Service {
 			.build();
 		}
 		String code = request.getParameter("code");
-		logger.info("code is " + code);
+		logger.finer("code is " + code);
 
 		if (code != null && !code.equals("")) {
 
@@ -444,9 +444,9 @@ public class MovesService extends Service {
 
 				String jsonString = "";
 				String output;
-				logger.info("Output from Server .... \n");
+				logger.finer("Output from Server .... \n");
 				while ((output = br.readLine()) != null) {
-					logger.info(output);
+					logger.finer(output);
 					jsonString += output;
 				}
 				JSONObject json = (JSONObject) JSONValue.parse(jsonString);
@@ -466,8 +466,8 @@ public class MovesService extends Service {
 				token.setExpiresAt(expiresAt);
 
 				accessToken = token;
-				logger.info(machineName + " access_token is " + accessTokenString);
-				logger.info(machineName + " token_type is " + tokenType);
+				logger.finer(machineName + " access_token is " + accessTokenString);
+				logger.finer(machineName + " token_type is " + tokenType);
 
 				conn.disconnect();
 			} catch (MalformedURLException e) {
@@ -477,7 +477,7 @@ public class MovesService extends Service {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			logger.info(authURL);
+			logger.finer(authURL);
 
 
 
@@ -491,8 +491,8 @@ public class MovesService extends Service {
 			List<Metric> metrics = getMetrics(startDate, today);
 
 			for (Metric metric : metrics) {
-				logger.info(metric.getMeasuredByRDF(PROVENANCE, CARREVocabulary.DEFAULT_USER_FOR_TESTING));
-				logger.info(metric.toRDFString(CARREVocabulary.DEFAULT_USER_FOR_TESTING));
+				logger.finer(metric.getMeasuredByRDF(PROVENANCE, CARREVocabulary.DEFAULT_USER_FOR_TESTING));
+				logger.finer(metric.toRDFString(CARREVocabulary.DEFAULT_USER_FOR_TESTING));
 			}
 
 			makeApiCall("profile", null, null, null);
@@ -680,7 +680,7 @@ public class MovesService extends Service {
 			if (endTimeDate != null) {
 				newDuration = (endTimeDate.getTime() - startTimeDate.getTime()) * MILLISECONDS_PER_SECOND;
 				if (newDuration != duration.longValue()) {
-					logger.info("Durations don't match: stored is " + duration.longValue() 
+					logger.finer("Durations don't match: stored is " + duration.longValue() 
 							+ ", computed is " + newDuration);
 				}
 			}
@@ -782,9 +782,9 @@ public class MovesService extends Service {
 					(conn.getInputStream())));
 
 			String output;
-			logger.info("Output from Server .... \n");
+			logger.finer("Output from Server .... \n");
 			while ((output = br.readLine()) != null) {
-				logger.info(output);
+				logger.finer(output);
 				locationContent += output;
 			}
 
@@ -833,7 +833,7 @@ public class MovesService extends Service {
 						if (!country.equals("")) {
 							locationDetailsString += country;
 						}
-						logger.info("Location details " + locationDetailsString + ".");
+						logger.finer("Location details " + locationDetailsString + ".");
 						location.setLocation(locationDetailsString);
 
 					}
@@ -851,7 +851,7 @@ public class MovesService extends Service {
 				+ "&client_secret=" + oauth_secret
 				+ "&grant_type=refresh_token"
 				+ "&refresh_token=" + accessToken.getRefreshToken();
-		logger.info(url);
+		logger.finer(url);
 		OAuth2AccessToken token = null;
 		try {
 			URL getAccessToken = new URL(url);
@@ -869,13 +869,13 @@ public class MovesService extends Service {
 			BufferedReader br = new BufferedReader(new InputStreamReader(response));
 
 			JSONObject results = (JSONObject) JSONValue.parse(br);
-			logger.info(results.toJSONString());
+			logger.finer(results.toJSONString());
 			token = getOAuth2AccessToken(results, accessToken.getRefreshToken());
 			token.setUser(accessToken.getUser());
 			token.setUserId(accessToken.getUserId());
 			token.setConnectionURI(accessToken.getConnectionURI());
 			if (!token.getRefreshToken().equals(accessToken.getRefreshToken())) {
-				logger.info("Update refresh tokens here...");
+				logger.finer("Update refresh tokens here...");
 			}
 
 			return token;
@@ -888,7 +888,7 @@ public class MovesService extends Service {
 		}
 
 		if (token == null ) {
-			logger.info("token is null (Token, end)");
+			logger.finer("token is null (Token, end)");
 		}
 		return token;
 	}
@@ -916,10 +916,10 @@ public class MovesService extends Service {
 
 
 	public String makeApiCall(String keyword, Date startDate, Date endDate, Integer pastDays) {
-		logger.info("accessToken: " + accessToken.getToken());
+		logger.finer("accessToken: " + accessToken.getToken());
 		//https://api.moveswearables.com/move/resource/v1/user/me/profile
 		String reqURLS = baseURL + "/api/1.1/" + keyword;
-		logger.info(reqURLS);
+		logger.finer(reqURLS);
 
 		OAuthRequest serviceRequest = new OAuthRequest(Verb.GET, reqURLS);
 		/*
@@ -934,13 +934,13 @@ public class MovesService extends Service {
 		 * [&timeZone=<timeZone>]
 		 */
 		if (pastDays != null) {
-			logger.info("pastDays=" + pastDays);
+			logger.finer("pastDays=" + pastDays);
 			serviceRequest.addQuerystringParameter("pastDays", pastDays.toString());
 		} else if (startDate != null && endDate != null) {
 			String startDateString = DateFormatUtils.format(startDate, "yyyy-MM-dd",TimeZone.getTimeZone("UTC"));
 			String endDateString = DateFormatUtils.format(endDate, "yyyy-MM-dd",TimeZone.getTimeZone("UTC"));
-			logger.info(startDateString);
-			logger.info(endDateString);
+			logger.finer(startDateString);
+			logger.finer(endDateString);
 			serviceRequest.addQuerystringParameter("from", startDateString);
 			serviceRequest.addQuerystringParameter("to", endDateString);
 		} else if (startDate != null) {
@@ -948,8 +948,8 @@ public class MovesService extends Service {
 			Calendar cal = Calendar.getInstance();
 			endDate = cal.getTime();
 			String endDateString = DateFormatUtils.format(endDate, "yyyy-MM-dd",TimeZone.getTimeZone("UTC"));
-			logger.info(startDateString);
-			logger.info(endDateString);
+			logger.finer(startDateString);
+			logger.finer(endDateString);
 			String updatedSinceString = DateFormatUtils.format(startDate, "yyyyMMdd'T'HHmmssZ");
 			serviceRequest.addQuerystringParameter("from", startDateString);
 			serviceRequest.addQuerystringParameter("to", endDateString);
@@ -957,9 +957,9 @@ public class MovesService extends Service {
 		}
 		serviceRequest.addHeader("Authorization", "Bearer " + accessToken.getToken());
 		Response requestResponse = serviceRequest.send();
-		logger.info(requestResponse.getBody());
+		logger.finer(requestResponse.getBody());
 		String results = requestResponse.getBody();
-		logger.info(results);
+		logger.finer(results);
 		return results;
 
 	}

@@ -558,6 +558,8 @@ public class MisfitService extends Service {
 			Number points = (Number) summary.get("points");
 			String activityDateString = (String) summary.get("date");
 			Date activityDate = new Date(startDate.getTime());
+			logger.finer("Trying to parse date " + activityDateString);
+			logger.finer("Pre-parsing: " + DateFormatUtils.format(startDate, "yyyy-MM-dd"));//,TimeZone.getTimeZone("UTC")));
 			try {
 				SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
 				activityDate = format.parse(activityDateString);
@@ -565,7 +567,7 @@ public class MisfitService extends Service {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-
+			logger.finer("Post-parsing: " + DateFormatUtils.format(activityDate, "yyyy-MM-dd"));//,TimeZone.getTimeZone("UTC")));
 			long steps = (Long) summary.get("steps");
 
 			Activity activity = new Activity(machineName, activityDate);
@@ -660,8 +662,8 @@ public class MisfitService extends Service {
 		OAuthRequest serviceRequest = new OAuthRequest(Verb.GET, reqURLS);
 
 		if (startDate != null && endDate != null) {
-			String startDateString = DateFormatUtils.format(startDate, "yyyy-MM-dd",TimeZone.getTimeZone("UTC"));
-			String endDateString = DateFormatUtils.format(endDate, "yyyy-MM-dd",TimeZone.getTimeZone("UTC"));
+			String startDateString = DateFormatUtils.format(startDate, "yyyy-MM-dd");//,TimeZone.getTimeZone("UTC"));
+			String endDateString = DateFormatUtils.format(endDate, "yyyy-MM-dd");//,TimeZone.getTimeZone("UTC"));
 			logger.finer(startDateString);
 			logger.finer(endDateString);
 			serviceRequest.addQuerystringParameter("start_date", startDateString);
@@ -670,9 +672,9 @@ public class MisfitService extends Service {
 		}
 		serviceRequest.addHeader("access_token", accessToken.getToken());
 		Response requestResponse = serviceRequest.send();
-		logger.finer(requestResponse.getBody());
+		logger.finer("Response body: " + requestResponse.getBody());
 		String results = requestResponse.getBody();
-		logger.finer(results);
+		logger.finer("Results: " + results);
 		return results;
 
 	}

@@ -45,7 +45,7 @@ public abstract class Metric {
 	public Metric(String source, Date dateMeasured) {
 		setDate(dateMeasured);
 		DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
-	    df.setTimeZone(TimeZone.getTimeZone("UTC"));
+	    //df.setTimeZone(TimeZone.getTimeZone("UTC"));
 		setId(source + 
 				df.format(getDate()).replaceAll(" ", "_"));
 		provenance = "";
@@ -284,7 +284,7 @@ public abstract class Metric {
 							continue;
 						} else {
 							DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
-						    df.setTimeZone(TimeZone.getTimeZone("UTC"));
+						    //df.setTimeZone(TimeZone.getTimeZone("UTC"));
 							literal = "\"" + 
 									df.format(value)
 									+ "\"" + CARREVocabulary.DATE_TYPE;
