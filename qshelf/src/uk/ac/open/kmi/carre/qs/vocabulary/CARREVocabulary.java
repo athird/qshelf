@@ -27,9 +27,23 @@ public interface CARREVocabulary {
 	public static final String STRING_TYPE = "^^xsd:string";
 
 	public static final String[] PREFICES = {"xsd: <http://www.w3.org/2001/XMLSchema#>",
+		"rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>",
 		"rdfs: <http://www.w3.org/2000/01/rdf-schema#>",
+		": <http://carre.kmi.open.ac.uk/ontology/sensors.owl#>",
+		"risk: <http://carre.kmi.open.ac.uk/ontology/risk.owl#>",
+		"carreUsers: <https://carre.kmi.open.ac.uk/users/>",
 		"carreSensors: <" + CARRE_SENSORS_OWL + ">",
-	"carreManufacturer: <" + BASE_URL + "manufacturers/>"};
+		"carreManufacturer: <" + BASE_URL + "manufacturers/>"};
+	
+	/*
+	 * PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX : <http://carre.kmi.open.ac.uk/ontology/sensors.owl#>
+PREFIX risk: <http://carre.kmi.open.ac.uk/ontology/risk.owl#>
+PREFIX carreManufacturer: <http://carre.kmi.open.ac.uk/manufacturers/>
+PREFIX carreUsers: <https://carre.kmi.open.ac.uk/users/>
+	 */
 	public static final String SENSOR_RDF_PREFIX = "carreSensors:";
 	public static final String MANUFACTURER_RDF_PREFIX = "carreManufacturer:";
 	

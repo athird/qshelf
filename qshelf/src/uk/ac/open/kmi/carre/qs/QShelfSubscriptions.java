@@ -86,17 +86,20 @@ public class QShelfSubscriptions extends HttpServlet {
 		String pathInfo = request.getPathInfo();
 		Service currentService = null;
 		logger.info("Received get request! pathInfo " + pathInfo);
-		
+
 		response.setStatus(HttpServletResponse.SC_NO_CONTENT);
- 		logger.info("Sent NO_CONTENT status.");
+		logger.info("Sent NO_CONTENT status.");
 		try {
 			if (pathInfo != null && !(pathInfo.equals(""))) {
 				pathInfo = pathInfo.replaceAll("/", "");
 				currentService = DefaultService.getServiceWithMachineName(pathInfo, 
 						getServletContext().getRealPath("/WEB-INF/config.properties"));
-				currentService.setThreadedRequest(request);
-				executorService.submit(currentService);
-				//currentService.handleNotification(request);
+				if (pathInfo.contains("googlefit")) {
+					currentService.setThreadedRequest(request);
+					executorService.submit(currentService); 
+				} else {
+					currentService.handleNotification(currentService.getRequestContents(request));
+				}
 			} 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -128,7 +131,7 @@ public class QShelfSubscriptions extends HttpServlet {
 						getServletContext().getRealPath("/WEB-INF/config.properties"));
 				//currentService.setThreadedRequest(request);
 				//executorService.submit(currentService);
-				String json = "";
+				/*String json = "";
 				try {
 					BufferedReader reader = request.getReader();
 					String line = reader.readLine();
@@ -141,7 +144,13 @@ public class QShelfSubscriptions extends HttpServlet {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				currentService.handleNotification(json);
+				currentService.handleNotification(json);*/
+				if (pathInfo.contains("googlefit")) {
+					currentService.setThreadedRequest(request);
+					executorService.submit(currentService); 
+				} else {
+					currentService.handleNotification(currentService.getRequestContents(request));
+				}
 			} 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -149,22 +158,22 @@ public class QShelfSubscriptions extends HttpServlet {
 			e.printStackTrace();
 		}
 	}
-	
+
 	public void destroy() {
 		executorService.shutdown();
 		try {
-		     // Wait a while for existing tasks to terminate
-		     if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-		       executorService.shutdownNow(); // Cancel currently executing tasks
-		       // Wait a while for tasks to respond to being cancelled
-		       if (!executorService.awaitTermination(60, TimeUnit.SECONDS))
-		           System.err.println("Pool did not terminate");
-		     }
-		   } catch (InterruptedException ie) {
-		     // (Re-)Cancel if current thread also interrupted
-		     executorService.shutdownNow();
-		     // Preserve interrupt status
-		     Thread.currentThread().interrupt();
-		   }
+			// Wait a while for existing tasks to terminate
+			if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+				executorService.shutdownNow(); // Cancel currently executing tasks
+				// Wait a while for tasks to respond to being cancelled
+				if (!executorService.awaitTermination(60, TimeUnit.SECONDS))
+					System.err.println("Pool did not terminate");
+			}
+		} catch (InterruptedException ie) {
+			// (Re-)Cancel if current thread also interrupted
+			executorService.shutdownNow();
+			// Preserve interrupt status
+			Thread.currentThread().interrupt();
+		}
 	}
 }

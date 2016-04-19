@@ -59,7 +59,7 @@ public class CarrePlatformConnector {
 		String sparql = "";
 		CarrePlatformConnector connector = new CarrePlatformConnector("/Users/allanthird/Work/workspaces/git/qshelf2/qshelf/WebContent/WEB-INF/config.properties");
 		ResultSet results = connector.executeSPARQL(sparql);
-		logger.finer("getRowNumber: " + results.getRowNumber());
+		logger.info("getRowNumber: " + results.getRowNumber());
 	}
 
 	public CarrePlatformConnector(String propertiesPath){
@@ -108,7 +108,7 @@ public class CarrePlatformConnector {
 				return rs;
 			//            System.out.println(rs);
 		} catch (Exception e){
-			logger.finer(e.getMessage());
+			logger.info(e.getMessage());
 			return e.hashCode();
 		}
 		return 0;
@@ -125,7 +125,7 @@ public class CarrePlatformConnector {
 			}
 			query += "\n";
 			query += sparql;
-			logger.finer(query);
+			logger.info(query);
 			Query sparqlQuery = QueryFactory.create(query);
 			VirtuosoQueryExecution vqe = VirtuosoQueryExecutionFactory.create(sparqlQuery, set);
 			ResultSet results = vqe.execSelect();
@@ -149,13 +149,13 @@ public class CarrePlatformConnector {
 			}
 			query += "\n";
 			query += "INSERT IN <" + CARREVocabulary.USER_URL + user + "> {\n" + triples + "}";
-			logger.finer(query);
+			logger.info(query);
 			VirtuosoUpdateRequest vur = VirtuosoUpdateFactory.create(query, set);
 			vur.exec();
 
 
 		} catch (Exception e){
-			logger.finer(e.getMessage());
+			logger.info(e.getMessage());
 			return false;
 		}
 
@@ -171,7 +171,7 @@ public class CarrePlatformConnector {
 			vur.exec();
 
 		} catch (Exception e){
-			logger.finer(e.getMessage());
+			logger.info(e.getMessage());
 			return false;
 		}
 
@@ -196,18 +196,18 @@ public class CarrePlatformConnector {
 			query += "WITH <" + CARREVocabulary.USER_URL + username 
 					+ ">\n DELETE { ?subject ?predicate ?object } WHERE { ?subject ?predicate ?object . <" 
 					+ subject + "> " + predicate + " ?object } \n";
-			logger.finer(query);
+			logger.info(query);
 			VirtuosoUpdateRequest vur = VirtuosoUpdateFactory.create(query, set);
 			vur.exec();
 			query = "" + prefices;
 			query	+= "INSERT IN <" + CARREVocabulary.USER_URL + username + "> {\n"
 					+ "<" + subject + "> " + predicate + " " + object + " }\n";
-			logger.finer(query);
+			logger.info(query);
 			VirtuosoUpdateRequest vur2 = VirtuosoUpdateFactory.create(query, set);
 			vur2.exec();
 
 		} catch (Exception e){
-			logger.finer(e.getMessage());
+			logger.info(e.getMessage());
 			return false;
 		}
 

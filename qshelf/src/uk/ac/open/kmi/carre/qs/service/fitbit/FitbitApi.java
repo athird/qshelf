@@ -2,23 +2,23 @@ package uk.ac.open.kmi.carre.qs.service.fitbit;
 
 import java.util.logging.Logger;
 
-import org.scribe.builder.api.DefaultApi10a;
-import org.scribe.model.Token;
+import org.scribe.builder.api.DefaultApi20;
+import org.scribe.model.OAuthConfig;
 
-import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
-
-public class FitbitApi extends DefaultApi10a{
+public class FitbitApi extends DefaultApi20 {
 	private static Logger logger = Logger.getLogger(FitbitApi.class.getName());
 	
-	private static final String AUTHORIZE_URL = "https://www.fitbit.com/oauth/authorize?oauth_token=%s";
+	@Override
+	public String getAccessTokenEndpoint() {
+		return FitbitService.accessTokenURL;
+	}
 
-	public String getAccessTokenEndpoint(){
-		return "https://api.fitbit.com/oauth/access_token";
+	@Override
+	public String getAuthorizationUrl(OAuthConfig config) {
+		return FitbitService.authURL + "?client_id=" + config.getApiKey()
+				+ "&response_type=code"
+				+ "&redirect_uri=" + config.getCallback()
+				+ "&scope=ctivity heartrate nutrition profile sleep weight";
 	}
-	public String getRequestTokenEndpoint(){
-		return "https://api.fitbit.com/oauth/request_token";
-	}
-	public String getAuthorizationUrl(Token requestToken){
-		return String.format(AUTHORIZE_URL, requestToken.getToken());
-	}
+
 }

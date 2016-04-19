@@ -2,6 +2,11 @@ package uk.ac.open.kmi.carre.qs.service.fitbit;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -15,6 +20,7 @@ import java.util.logging.Logger;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.catalina.util.Base64;
 import org.apache.commons.lang.time.DateFormatUtils;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -32,6 +38,7 @@ import org.scribe.oauth.OAuthService;
 import com.hp.hpl.jena.query.QuerySolution;
 import com.hp.hpl.jena.query.ResultSet;
 import com.hp.hpl.jena.rdf.model.Literal;
+import com.hp.hpl.jena.rdf.model.Resource;
 
 import uk.ac.open.kmi.carre.qs.metrics.Activity;
 import uk.ac.open.kmi.carre.qs.metrics.BloodPressure;
@@ -47,13 +54,14 @@ import uk.ac.open.kmi.carre.qs.metrics.SleepRecord;
 import uk.ac.open.kmi.carre.qs.metrics.Weight;
 import uk.ac.open.kmi.carre.qs.service.RDFAbleToken;
 import uk.ac.open.kmi.carre.qs.service.Service;
+import uk.ac.open.kmi.carre.qs.service.iHealth.OAuth2AccessToken;
 import uk.ac.open.kmi.carre.qs.service.misfit.MisfitService;
 import uk.ac.open.kmi.carre.qs.sparql.CarrePlatformConnector;
 import uk.ac.open.kmi.carre.qs.vocabulary.CARREVocabulary;
 
 public class FitbitService extends Service {
 	private static Logger logger = Logger.getLogger(FitbitService.class.getName());
-	
+
 	public FitbitService(String propertiesPath) {
 		super(propertiesPath);
 	}
@@ -65,15 +73,15 @@ public class FitbitService extends Service {
 	public static final String baseURL = "https://api.fitbit.com/1";
 
 	public static final String requestTokenURL = "https://api.fitbit.com/oauth/request_token";
-	public static final String authURL = "https://www.fitbit.com/oauth/authorize";
-	public static final String accessTokenURL = "https://api.fitbit.com/oauth/access_token";
+	public static final String authURL = "https://www.fitbit.com/oauth2/authorize";
+	public static final String accessTokenURL = "https://api.fitbit.com/oauth2/token";
 
 	public static final String REQUEST_TOKEN_SESSION = "FITBIT_REQUEST_TOKEN_SESSION";
 	public static final String ACCESS_TOKEN_SESSION = "FITBIT_ACCESS_TOKEN_SESSION";
 
 	private OAuthService service = null;
 	private String userId = "";
-	private RDFAbleToken accessToken = null;
+	private OAuth2AccessToken accessToken = null;
 
 	public static final int ASLEEP = 1;
 	public static final int AWAKE = 2;
@@ -88,7 +96,7 @@ public class FitbitService extends Service {
 	@Override
 	public void handleNotification(String requestContent) {
 		String json = requestContent;
-		
+
 		JSONArray jsonArray = (JSONArray) JSONValue.parse(json);
 		for (int i = 0; i < jsonArray.size(); i++) {
 			JSONObject notifyJson = (JSONObject) jsonArray.get(i);
@@ -97,7 +105,7 @@ public class FitbitService extends Service {
 			String ownerId = (String) notifyJson.get("ownerId");
 			String ownerType = (String) notifyJson.get("ownerType");
 			String subscriptionId = (String) notifyJson.get("subscriptionId");
-			logger.finer(collectionType + ", " +dateString + ", " +ownerId + 
+			logger.info(collectionType + ", " +dateString + ", " +ownerId + 
 					", " +ownerType + ", " + subscriptionId);
 			handleNotification(collectionType, dateString, ownerId, 
 					ownerType, subscriptionId);
@@ -108,9 +116,10 @@ public class FitbitService extends Service {
 
 	public void handleNotification(String collectionType, String dateString,
 			String ownerId, String ownerType, String carreUserId) {
-		RDFAbleToken token = getTokenForUser(carreUserId);
+		OAuth2AccessToken token = getTokenForUser(carreUserId);
+
 		if (token != null ) {
-			RDFAbleToken oldAccessToken = accessToken;
+			OAuth2AccessToken oldAccessToken = accessToken;
 			accessToken = token;
 			if (service == null ) {
 				service = new ServiceBuilder()
@@ -150,7 +159,7 @@ public class FitbitService extends Service {
 			}
 			accessToken = oldAccessToken;
 
-			logger.finer(rdf);
+			logger.info(rdf);
 			if (!rdf.equals("")) {
 				CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
 				boolean success = true;
@@ -159,38 +168,423 @@ public class FitbitService extends Service {
 					success &= connector.insertTriples(carreUserId, tripleSet);
 				}
 				if (!success) {
-					logger.finer("Failed to insert triples.");
+					logger.info("Failed to insert triples.");
 				}
 			}
 		} else {
-			logger.finer("Token was null!");
+			logger.info("Token was null!");
 		}
 	}
 
-	public RDFAbleToken getTokenForUser(String userId) {
+	public OAuth2AccessToken getTokenV2ForUser(String userId) {
+		RDFAbleToken original_token = getTokenForUser(userId);
+		boolean upgradingTokens = false;
+		OAuth2AccessToken token = new OAuth2AccessToken(original_token.getToken(), "");
+
+		if (original_token.getRefreshToken() == null || original_token.getRefreshToken().equals("")) {
+			upgradingTokens = true;
+			token.setUser(original_token.getUser());
+			token.setExpires("3600");
+			token.setRefreshToken(original_token.getToken() + ":" + original_token.getSecret());
+
+			Calendar cal = Calendar.getInstance();
+			cal.set(Calendar.DAY_OF_MONTH, cal.get(Calendar.DAY_OF_MONTH) - 1);
+			token.setExpiresAt(cal.getTime());		
+
+
+		} else {
+			token.setRefreshToken(original_token.getRefreshToken());
+		}
+		token.setConnectionURI(original_token.getConnection());
 		CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
-		String sparql = "SELECT ?oauth_token ?oauth_secret FROM <" + CARREVocabulary.USER_URL 
+		String connection = "";
+
+		if (!upgradingTokens) {
+			String sparql = "SELECT ?connection  ?oauth_token ?expires ?refresh_token ?expires_at ?user WHERE "
+					+ "{\n" + 
+					"GRAPH <" + CARREVocabulary.USER_URL + userId + "> {\n ?connection <"+ CARREVocabulary.HAS_MANUFACTURER + "> "
+					+ RDF_SERVICE_NAME + ".\n " +
+					" ?connection <" + 
+					CARREVocabulary.USER_ID_PREDICATE + "> ?user .\n" +
+					" ?connection <" 
+					+ CARREVocabulary.ACCESS_TOKEN_PREDICATE + "> ?oauth_token.\n" +
+					" ?connection <" 
+					+ CARREVocabulary.REFRESH_TOKEN_PREDICATE + "> ?refresh_token.\n" +
+					" ?connection <" 
+					+ CARREVocabulary.EXPIRES_TOKEN_PREDICATE + "> ?expires.\n" +
+					" ?connection <" 
+					+ CARREVocabulary.EXPIRES_AT_PREDICATE + "> ?expires_at.\n" +
+					"}\n" +
+					"}\n";
+			logger.info(sparql);
+			ResultSet results = connector.executeSPARQL(sparql);
+			while (results.hasNext()) {
+				String expires = "";
+				String refresh_token = "";
+				String expiresAt = "";
+
+				QuerySolution solution =  results.next();
+				Literal tokenLiteral = solution.getLiteral("oauth_token");
+				Resource userResource = solution.getResource("user");
+				if (tokenLiteral == null) {
+					logger.info("Token or user id is null!");
+					return null;
+				}
+				String user = "";
+				if (userResource == null) {
+					Literal userLiteral = solution.getLiteral("user");
+					user = userLiteral.getString();
+				}
+
+				Literal expiresLiteral = solution.getLiteral("expires");
+				Literal refreshLiteral = solution.getLiteral("refresh_token");
+				Literal expiresAtLiteral = solution.getLiteral("expires_at");
+
+				Resource connectionResource = solution.getResource("connection");
+
+				String oauth_token = tokenLiteral.getString();
+				user = userResource != null ? userResource.getURI() : user;
+
+				expires = expiresLiteral.getString();
+				refresh_token = refreshLiteral.getString();
+				expiresAt = expiresAtLiteral.getString();
+
+				connection = connectionResource.getURI();
+
+				logger.info("token literal is " + oauth_token + 
+						", user is " + user + 
+						", expires is " + expires +
+						", refresh_token is " + refresh_token +
+						", expires_at is " + expiresAt);
+				Date expiresAtDate = null;
+
+				SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+				try {
+					expiresAtDate = format.parse(expiresAt);
+				} catch (ParseException e) {
+					try {
+						SimpleDateFormat format2 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+						expiresAtDate = format2.parse(expiresAt);
+					} catch (ParseException f) {
+						try {
+							expiresAtDate = format.parse(expiresAt.substring(0,expiresAt.length() - 4));
+						} catch (ParseException g) {
+							try {
+								SimpleDateFormat format3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+								expiresAtDate = format3.parse(expiresAt);
+							} catch (ParseException h) {
+								try {
+									String simplifiedDate = expiresAt.replaceAll("([0-9])T([0-9])", "$1 $2");
+									simplifiedDate = simplifiedDate.replaceAll("Z", "");
+									SimpleDateFormat format4 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+									expiresAtDate = format4.parse(simplifiedDate);
+								} catch (ParseException i) {
+									logger.info("Couldn't parse RDF date.");
+								}
+							}
+						}
+					}
+				}
+				if (expiresAtDate == null) {
+					format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm");
+					try {
+						expiresAtDate = format.parse(expiresAt);
+					} catch (ParseException e) {
+						try {
+							//2015-01-22T10:38Z
+							SimpleDateFormat format2 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
+							expiresAtDate = format2.parse(expiresAt);
+						} catch (ParseException f) {
+							try {
+								expiresAtDate = format.parse(expiresAt.substring(0,expiresAt.length() - 4));
+							} catch (ParseException g) {
+								try {
+									SimpleDateFormat format3 = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+									expiresAtDate = format3.parse(expiresAt);
+								} catch (ParseException h) {
+									try {
+										String simplifiedDate = expiresAt.replaceAll("([0-9])T([0-9])", "$1 $2");
+										simplifiedDate = simplifiedDate.replaceAll("Z", "");
+										SimpleDateFormat format4 = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+										expiresAtDate = format4.parse(simplifiedDate);
+									} catch (ParseException i) {
+										logger.info("Couldn't parse RDF date.");
+									}
+								}
+							}
+						}
+					}
+				}
+				token = new OAuth2AccessToken(oauth_token, "");
+				token.setUser(user);
+				token.setExpires(expires);
+				token.setRefreshToken(refresh_token);
+				token.setUserId(userId);
+				if (expiresAtDate != null) {
+					token.setExpiresAt(expiresAtDate);
+				} else {
+					logger.info("Expires at was null!");
+				}
+				token.setConnectionURI(connection);
+			}
+		}
+		if (connection.equals("")) {
+			connection = token.getConnectionURI();
+		}
+
+		Date today = Calendar.getInstance().getTime();
+		if (upgradingTokens || (token.getExpiresAt() == null ) || (token.getExpiresAt() != null && today.after(token.getExpiresAt()))) {
+			OAuth2AccessToken newToken = getOAuth2AccessToken( token);
+			logger.info("Retrieving new access token. ");
+			logger.info("token literal is " + newToken.getToken() + 
+					", user is " + newToken.getUser() + 
+					", expires is " + newToken.getExpires() +
+					", refresh_token is " + newToken.getRefreshToken() +
+					", expires_at is " + formatDate(newToken.getExpiresAt()));
+			String newDateString = newToken.getRDFDate(newToken.getExpiresAt());
+			connector.updateTripleObject(userId,  connection , "<" + CARREVocabulary.ACCESS_TOKEN_PREDICATE + ">", "\"" + newToken.getToken() + "\"" + CARREVocabulary.STRING_TYPE);
+			connector.updateTripleObject(userId,  connection , "<" + CARREVocabulary.EXPIRES_AT_PREDICATE + ">",  newDateString);
+			connector.updateTripleObject(userId, connection, "<" + CARREVocabulary.REFRESH_TOKEN_PREDICATE +">", "\"" + newToken.getRefreshToken() + "\"" + CARREVocabulary.STRING_TYPE);
+			connector.updateTripleObject(userId, connection, "<" + CARREVocabulary.EXPIRES_TOKEN_PREDICATE +">", "\"" + newToken.getExpires() + "\"" + CARREVocabulary.STRING_TYPE);
+			connector.updateTripleObject(userId, connection, "<" + CARREVocabulary.USER_ID_PREDICATE +">", "\"" + newToken.getUser() + "\"" + CARREVocabulary.STRING_TYPE);
+
+
+			token = newToken;
+		} 
+
+		return token;
+
+
+
+
+	}
+	public OAuth2AccessToken getOAuth2AccessToken( OAuth2AccessToken accessToken) {
+		String url = accessTokenURL; 
+		String parameters = "grant_type=refresh_token"
+				+ "&refresh_token=" + accessToken.getRefreshToken();
+		String authStringOriginal = oauth_token + ":" + oauth_secret;  
+		String authString = org.apache.commons.codec.binary.Base64.encodeBase64String(authStringOriginal.getBytes());
+		logger.info(url);
+		OAuth2AccessToken token = null;
+		try {
+			URL getAccessToken = new URL(url);
+
+			HttpURLConnection conn = (HttpURLConnection) getAccessToken.openConnection();
+			conn.setRequestMethod("POST");
+			conn.setRequestProperty("Authorization", "Basic " + authString);
+			conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+			conn.setRequestProperty("Content-Length", "" + parameters.length());
+			conn.setDoOutput(true);
+			conn.getOutputStream().write(parameters.getBytes());
+			conn.getOutputStream().flush();
+
+			InputStream response = conn.getInputStream();
+
+			BufferedReader br = new BufferedReader(new InputStreamReader(response));
+
+			JSONObject results = (JSONObject) JSONValue.parse(br);
+			
+			logger.info(results.toJSONString());
+			token = getOAuth2AccessToken(results, accessToken.getRefreshToken());
+			token.setUser(accessToken.getUser());
+			//			token.setUserId(accessToken.getUserId());
+			//token.setConnectionURI(accessToken.getConnectionURI());
+			if (!token.getRefreshToken().equals(accessToken.getRefreshToken())) {
+				logger.info("Update refresh tokens here...");
+			}
+
+			return token;
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			logger.info(e.getMessage());
+			e.printStackTrace();
+		}
+
+		if (token == null ) {
+			logger.info("token is null (Token, end)");
+		}
+		return token;
+	}
+
+	public static OAuth2AccessToken getOAuth2AccessToken(JSONObject json, String refreshToken) {
+		String accessToken = (String) json.get("access_token");
+		OAuth2AccessToken token = new OAuth2AccessToken(accessToken, "");
+		int expires = ((Long) json.get("expires_in")).intValue();
+		token.setExpires("" + expires);
+		String newRefreshToken = (String) json.get("refresh_token");
+		token.setRefreshToken(newRefreshToken);
+		String user_id = (String) json.get("user_id");
+		if (user_id != null) {
+			token.setUserId(user_id);
+		}
+		Calendar cal = Calendar.getInstance();
+		cal.add(Calendar.SECOND, expires);
+		Date expiresAt = cal.getTime();
+		token.setExpiresAt(expiresAt);
+
+		return token;
+	}
+
+
+	public OAuth2AccessToken getTokenForUser(String userId) {
+		CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
+		String sparql = "SELECT ?connection ?oauth_token ?oauth_secret ?refresh_token ?expires ?expires_at ?user FROM <" + CARREVocabulary.USER_URL 
 				+ userId + "> WHERE { ?connection <"+ CARREVocabulary.HAS_MANUFACTURER + "> "
 				+ RDF_SERVICE_NAME + ".\n " +
 				"?connection <" + CARREVocabulary.ACCESS_TOKEN_PREDICATE + "> ?oauth_token.\n" +
-				"?connection <" + 
-				CARREVocabulary.ACCESS_TOKEN_SECRET_PREDICATE + "> ?oauth_secret. }";
-
-		logger.finer(sparql);
+				"OPTIONAL { ?connection <" + 
+				CARREVocabulary.ACCESS_TOKEN_SECRET_PREDICATE + "> ?oauth_secret. } \n" +
+				" OPTIONAL { ?connection <" + CARREVocabulary.REFRESH_TOKEN_PREDICATE + "> ?refresh_token } \n" + 
+				" OPTIONAL { ?connection <" + 
+				CARREVocabulary.USER_ID_PREDICATE + "> ?user . }\n" +
+				" OPTIONAL { ?connection <" 
+				+ CARREVocabulary.EXPIRES_TOKEN_PREDICATE + "> ?expires. }\n" +
+				" OPTIONAL { ?connection <" 
+				+ CARREVocabulary.EXPIRES_AT_PREDICATE + "> ?expires_at. }\n" +
+				"}";
+		logger.info(sparql);
 		ResultSet results = connector.executeSPARQL(sparql);
 		while (results.hasNext()) {
 			QuerySolution solution =  results.next();
 			Literal tokenLiteral = solution.getLiteral("oauth_token");
 			Literal secretLiteral = solution.getLiteral("oauth_secret");
-			if (tokenLiteral == null || secretLiteral == null) {
-				logger.finer("Token or secret literal is null!");
+			Literal refreshLiteral = solution.getLiteral("refresh_token");
+			Literal expiresLiteral = solution.getLiteral("expires");
+			Literal expiresAtLiteral = solution.getLiteral("expires_at");
+			Literal userLiteral = solution.getLiteral("user");
+			
+			Resource connectionResource = solution.getResource("connection");
+			if (tokenLiteral == null) {
+				logger.info("Token literal is null!");
 				return null;
 			}
-			String oauth_token = tokenLiteral.getString();
-			String oauth_secret = secretLiteral.getString();
-			logger.finer("token literal is " + oauth_token + 
-					", secret literal is " + oauth_secret);
-			RDFAbleToken token = new RDFAbleToken(oauth_token, oauth_secret);
+			String oauthToken = tokenLiteral.getString();
+			String oauthSecret = secretLiteral == null ? "" : secretLiteral.getString();
+			String refresh_token = refreshLiteral == null ? "" : refreshLiteral.getString();
+			String expires = expiresLiteral == null ? "" :expiresLiteral.getString();
+			String expiresAt = expiresAtLiteral == null ? "" :expiresAtLiteral.getString();
+			String connection = connectionResource.getURI();
+			String user = userLiteral.getString();
+			logger.info("token literal is " + oauthToken + 
+					", secret literal is " + oauthSecret);
+			OAuth2AccessToken token = new OAuth2AccessToken(oauthToken, "");
+			boolean updating = false;
+			if (refresh_token.equals("")) {
+				updating = true;
+				OAuth2AccessToken updatingToken = new OAuth2AccessToken("", "");
+				updatingToken.setRefreshToken(oauthToken + ":" + oauthSecret);
+				OAuth2AccessToken updatedToken = getOAuth2AccessToken(updatingToken);
+				token = updatedToken;
+
+			} else {
+				token.setRefreshToken(refresh_token);
+				token.setExpires(expires);
+			}
+			token.setConnection(connection);
+			token.setConnectionURI(connection);
+			token.setUser(user);
+			Date expiresAtDate = null;
+			if (token.getExpiresAt() == null && !expiresAt.equals("")) {
+				
+
+				SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+				try {
+					expiresAtDate = format.parse(expiresAt);
+				} catch (ParseException e) {
+					try {
+						SimpleDateFormat format2 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+						expiresAtDate = format2.parse(expiresAt);
+					} catch (ParseException f) {
+						try {
+							expiresAtDate = format.parse(expiresAt.substring(0,expiresAt.length() - 4));
+						} catch (ParseException g) {
+							try {
+								SimpleDateFormat format3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+								expiresAtDate = format3.parse(expiresAt);
+							} catch (ParseException h) {
+								try {
+									String simplifiedDate = expiresAt.replaceAll("([0-9])T([0-9])", "$1 $2");
+									simplifiedDate = simplifiedDate.replaceAll("Z", "");
+									SimpleDateFormat format4 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+									expiresAtDate = format4.parse(simplifiedDate);
+								} catch (ParseException i) {
+									logger.info("Couldn't parse RDF date.");
+								}
+							}
+						}
+					}
+				}
+				if (expiresAtDate == null) {
+					format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm");
+					try {
+						expiresAtDate = format.parse(expiresAt);
+					} catch (ParseException e) {
+						try {
+							//2015-01-22T10:38Z
+							SimpleDateFormat format2 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
+							expiresAtDate = format2.parse(expiresAt);
+						} catch (ParseException f) {
+							try {
+								expiresAtDate = format.parse(expiresAt.substring(0,expiresAt.length() - 4));
+							} catch (ParseException g) {
+								try {
+									SimpleDateFormat format3 = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+									expiresAtDate = format3.parse(expiresAt);
+								} catch (ParseException h) {
+									try {
+										String simplifiedDate = expiresAt.replaceAll("([0-9])T([0-9])", "$1 $2");
+										simplifiedDate = simplifiedDate.replaceAll("Z", "");
+										SimpleDateFormat format4 = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+										expiresAtDate = format4.parse(simplifiedDate);
+									} catch (ParseException i) {
+										logger.info("Couldn't parse RDF date.");
+									}
+								}
+							}
+						}
+					}
+				}
+			} else if (token.getExpiresAt() == null){
+				Calendar cal = Calendar.getInstance();
+				cal.add(Calendar.SECOND, Integer.parseInt(expires));
+				expiresAtDate = cal.getTime();
+				
+			} else {
+				expiresAtDate = token.getExpiresAt();
+			}
+			token.setExpiresAt(expiresAtDate);
+			
+			if (updating) {
+				connector.updateTripleObject(userId,  connection , "<" + CARREVocabulary.ACCESS_TOKEN_PREDICATE + ">", "\"" + token.getToken() + "\"" + CARREVocabulary.STRING_TYPE);
+				connector.updateTripleObject(userId,  connection , "<" + CARREVocabulary.EXPIRES_AT_PREDICATE + ">",  token.getRDFDate(token.getExpiresAt()));
+				connector.updateTripleObject(userId, connection, "<" + CARREVocabulary.REFRESH_TOKEN_PREDICATE +">", "\"" + token.getRefreshToken() + "\"" + CARREVocabulary.STRING_TYPE);
+				connector.updateTripleObject(userId, connection, "<" + CARREVocabulary.EXPIRES_TOKEN_PREDICATE +">", "\"" + token.getExpires() + "\"" + CARREVocabulary.STRING_TYPE);
+				connector.updateTripleObject(userId, connection, "<" + CARREVocabulary.USER_ID_PREDICATE +">", "\"" + token.getUser() + "\"" + CARREVocabulary.STRING_TYPE);
+			} else {
+				Date today = Calendar.getInstance().getTime();
+				if ((token.getExpiresAt() == null ) || (token.getExpiresAt() != null && today.after(token.getExpiresAt()))) {
+					OAuth2AccessToken newToken = getOAuth2AccessToken( token);
+					logger.info("Retrieving new access token. ");
+					logger.info("token literal is " + newToken.getToken() + 
+							", user is " + newToken.getUser() + 
+							", expires is " + newToken.getExpires() +
+							", refresh_token is " + newToken.getRefreshToken() +
+							", expires_at is " + formatDate(newToken.getExpiresAt()));
+					String newDateString = newToken.getRDFDate(newToken.getExpiresAt());
+					connector.updateTripleObject(userId,  connection , "<" + CARREVocabulary.ACCESS_TOKEN_PREDICATE + ">", "\"" + newToken.getToken() + "\"" + CARREVocabulary.STRING_TYPE);
+					connector.updateTripleObject(userId,  connection , "<" + CARREVocabulary.EXPIRES_AT_PREDICATE + ">",  newDateString);
+					connector.updateTripleObject(userId, connection, "<" + CARREVocabulary.REFRESH_TOKEN_PREDICATE +">", "\"" + newToken.getRefreshToken() + "\"" + CARREVocabulary.STRING_TYPE);
+					connector.updateTripleObject(userId, connection, "<" + CARREVocabulary.EXPIRES_TOKEN_PREDICATE +">", "\"" + newToken.getExpires() + "\"" + CARREVocabulary.STRING_TYPE);
+
+
+					token = newToken;
+				} 
+
+			}
+			
 			return token;
 		}
 		return null;
@@ -219,26 +613,26 @@ public class FitbitService extends Service {
 		if (!((oauthToken != null && !oauthToken.equals("")) ||
 				oauthTokenSecret != null && !oauthTokenSecret.equals(""))) {
 			Token requestToken = service.getRequestToken();
-			logger.finer("RequestToken:" + requestToken.getToken() 
+			logger.info("RequestToken:" + requestToken.getToken() 
 					+ ", " + requestToken.getSecret());
 			request.getSession().setAttribute(machineName + "reqtoken", requestToken.getToken());
 			request.getSession().setAttribute(machineName + "reqsec", requestToken.getSecret());
 
 			String authURL= service.getAuthorizationUrl(requestToken);
 
-			logger.finer(authURL);
+			logger.info(authURL);
 			return response.encodeRedirectURL(authURL);
 		} else {
-			logger.finer("oauthTokenSecret" + oauthTokenSecret);
+			logger.info("oauthTokenSecret" + oauthTokenSecret);
 			Verifier verifier = new Verifier(oauthTokenSecret);
 			Token requestToken = new Token((String) request.getSession().getAttribute(machineName + "reqtoken"),
 					(String) request.getSession().getAttribute(machineName + "reqsec"));
 
 			Token tmpAccessToken = service.getAccessToken(requestToken, verifier);//, useridParameter);
-			accessToken = new RDFAbleToken(tmpAccessToken.getToken(), tmpAccessToken.getSecret());
+			accessToken = new OAuth2AccessToken(tmpAccessToken.getToken(), tmpAccessToken.getSecret());
 
-			logger.finer("accessToken: " + accessToken.getToken());
-			logger.finer("accessTokenSecret: " + accessToken.getSecret());
+			logger.info("accessToken: " + accessToken.getToken());
+			logger.info("accessTokenSecret: " + accessToken.getSecret());
 
 			Calendar cal = Calendar.getInstance();
 			Date today = cal.getTime();
@@ -250,8 +644,8 @@ public class FitbitService extends Service {
 			List<Metric> metrics = getMetrics(startDate, today);
 
 			for (Metric metric : metrics) {
-				logger.finer(metric.getMeasuredByRDF(PROVENANCE, CARREVocabulary.DEFAULT_USER_FOR_TESTING));
-				logger.finer(metric.toRDFString(CARREVocabulary.DEFAULT_USER_FOR_TESTING));
+				logger.info(metric.getMeasuredByRDF(PROVENANCE, CARREVocabulary.DEFAULT_USER_FOR_TESTING));
+				logger.info(metric.toRDFString(CARREVocabulary.DEFAULT_USER_FOR_TESTING));
 			}
 			return "";
 		}
@@ -722,27 +1116,33 @@ public class FitbitService extends Service {
 	public String makeApiCall(String keyword, Date date) {
 		//Token accessToken = service.getAccessToken(requestToken, verifier);//, useridParameter);
 
-		logger.finer("accessToken: " + accessToken.getToken());
-		logger.finer("accessTokenSecret: " + accessToken.getSecret());
+		logger.info("accessToken: " + accessToken.getToken());
+		//logger.info("accessTokenSecret: " + accessToken.getSecret());
 
 		String reqURLS = baseURL + "/user/-/profile.json";
-		logger.finer(reqURLS);
+		logger.info(reqURLS);
 
 		String dateString = DateFormatUtils.format(date, "yyyy-MM-dd",TimeZone.getTimeZone("UTC"));
 		OAuthRequest serviceRequest = new OAuthRequest(Verb.GET, baseURL 
 				//+ "/user/-/profile.json");
 				//+ "/user/-/activities/date/2014-06-05.json");
 				+ "/user/-/" + keyword + "/date/" + dateString + ".json");
-		service.signRequest(accessToken, serviceRequest); 
-		logger.finer(serviceRequest.getUrl());
-		logger.finer(serviceRequest.getCompleteUrl());
+		serviceRequest.addHeader("Authorization", "Bearer " + accessToken.getToken());
+		//service.signRequest(accessToken, serviceRequest); 
+		logger.info(serviceRequest.getUrl());
+		logger.info(serviceRequest.getCompleteUrl());
 
 		Response requestResponse = serviceRequest.send();
-		logger.finer(requestResponse.getBody());
+		logger.info(requestResponse.getBody());
 		return requestResponse.getBody();
 
 	}
 
+	public String formatDate(Date date) {
+		SimpleDateFormat format = new SimpleDateFormat ("E yyyy.MM.dd 'at' hh:mm:ss a zzz");
+		return format.format(date);
+
+	}
 
 
 	@Override

@@ -209,12 +209,7 @@ public class MedisanaService extends Service {
 
 	@Override
 	public String getRequestContents(HttpServletRequest request) {
-		/*
-		 * {
-	"headercontent" : "oauth_consumer_key="JycbU9obD6GXq95UhUEcxAJE8ME7DZnqbgPXe0jviyYytm1lnB04L8yKdpp0iWAT",oauth_signature_method="HMAC-SHA256",oauth_timestamp="1420802419339",oauth_nonce="wlUfoCP8VVLUkowdaututyGrbDkhaAztGUaL",oauth_token="bhCiZ8U9vSC9yJAdWgs5Fky3RkSSeBdvGGf4PydcMRo1RvZrbkKtokY8n1u7qUgK",oauth_version="1.0",oauth_signature="MzWdtKeDLn7W5TjAP2XmZrLax%2BjVxKvmEIO%2BvJzrK1A%3D""
-	"date" : "null"
-}
-		 */
+
 		String json = "";
 		String headerContent = request.getHeader("authorization");
 		String dateString = request.getParameter("date");
@@ -238,9 +233,9 @@ public class MedisanaService extends Service {
 						if (consumerKey.equals(oauth_token) 
 								|| consumerKey.equals("\"" + oauth_token + "\"")) {
 							consumerKeyMatches = true;
-							logger.finer("Matched consumer key!");
+							logger.info("Matched consumer key!");
 						} else {
-							logger.finer("Consumer keys didn't match: " +
+							logger.info("Consumer keys didn't match: " +
 									consumerKey + ", " + oauth_token);
 						}
 					}
@@ -251,9 +246,9 @@ public class MedisanaService extends Service {
 						if (userToken.contains("\"")) {
 							userToken = userToken.replaceAll("\"", "");
 						}
-						logger.finer("Found token " + token);
+						logger.info("Found token " + token);
 					} else {
-						logger.finer("Token is null in " + field);
+						logger.info("Token is null in " + field);
 					}
 				} else if (field.contains("date=")) {
 					dateString = field.split("=")[1];
@@ -272,7 +267,7 @@ public class MedisanaService extends Service {
 					Date date = formatter.parse(dateString);
 					handleNotification(userToken, date);
 				} catch (ParseException e) {
-					logger.finer(e.getMessage());
+					logger.info(e.getMessage());
 				}
 			} else {
 				handleNotification(userToken, null);
@@ -326,7 +321,7 @@ public class MedisanaService extends Service {
 			}
 			accessToken = oldAccessToken;
 
-			logger.finer(rdf);
+			logger.info(rdf);
 			if (!rdf.equals("")) {
 				CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
 				boolean success = true;
@@ -335,11 +330,11 @@ public class MedisanaService extends Service {
 					success &= connector.insertTriples(userId, tripleSet);
 				}
 				if (!success) {
-					logger.finer("Failed to insert triples.");
+					logger.info("Failed to insert triples.");
 				}
 			}
 		} else {
-			logger.finer("Token was null!");
+			logger.info("Token was null!");
 		}
 	}
 
@@ -363,11 +358,11 @@ public class MedisanaService extends Service {
 			String user = userResource.getURI();
 			userId = user.substring(user.lastIndexOf("/") + 1);
 			if (secretLiteral == null) {
-				logger.finer("Secret literal is null!");
+				logger.info("Secret literal is null!");
 				return null;
 			}
 			String oauth_secret = secretLiteral.getString();
-			logger.finer("token literal is " + userToken + 
+			logger.info("token literal is " + userToken + 
 					", secret literal is " + oauth_secret);
 			RDFAbleToken token = new RDFAbleToken(userToken, oauth_secret);
 			token.setUser(userId);
@@ -403,17 +398,17 @@ public class MedisanaService extends Service {
 		if (!((oauthToken != null && !oauthToken.equals("")) ||
 				oauthTokenSecret != null && !oauthTokenSecret.equals(""))) {
 			Token requestToken = service.getRequestToken();
-			logger.finer("OauthToken: " + requestToken.getToken() 
+			logger.info("OauthToken: " + requestToken.getToken() 
 					+ ", " + "OauthTokenSecret: " + requestToken.getSecret());
 			request.getSession().setAttribute(machineName + "reqtoken", requestToken.getToken());
 			request.getSession().setAttribute(machineName + "reqsec", requestToken.getSecret());
 
 			String authURL= service.getAuthorizationUrl(requestToken);
 
-			logger.finer(authURL);
+			logger.info(authURL);
 			return "";//response.encodeRedirectURL(authURL);
 		} else {
-			logger.finer("oauthTokenSecret: " + oauthTokenSecret);
+			logger.info("oauthTokenSecret: " + oauthTokenSecret);
 			Verifier verifier = new Verifier(oauthTokenSecret);
 			Token requestToken = new Token((String) request.getSession().getAttribute(machineName + "reqtoken"),
 					(String) request.getSession().getAttribute(machineName + "reqsec"));
@@ -423,8 +418,8 @@ public class MedisanaService extends Service {
 
 			accessToken = new RDFAbleToken(tmpAccessToken.getToken(), tmpAccessToken.getSecret());
 
-			logger.finer("accessToken: " + accessToken.getToken());
-			logger.finer("accessTokenSecret: " + accessToken.getSecret());
+			logger.info("accessToken: " + accessToken.getToken());
+			logger.info("accessTokenSecret: " + accessToken.getSecret());
 
 			Calendar cal = Calendar.getInstance();
 			Date today = cal.getTime();
@@ -436,8 +431,8 @@ public class MedisanaService extends Service {
 			/*List<Metric> metrics = getMetrics(startDate, today);
 
 			for (Metric metric : metrics) {
-				logger.finer(metric.getMeasuredByRDF(PROVENANCE, CARREVocabulary.DEFAULT_USER_FOR_TESTING));
-				logger.finer(metric.toRDFString(CARREVocabulary.DEFAULT_USER_FOR_TESTING));
+				logger.info(metric.getMeasuredByRDF(PROVENANCE, CARREVocabulary.DEFAULT_USER_FOR_TESTING));
+				logger.info(metric.toRDFString(CARREVocabulary.DEFAULT_USER_FOR_TESTING));
 			}*/
 			return "";
 		}	
@@ -840,7 +835,7 @@ public class MedisanaService extends Service {
 		service.signRequest(accessToken, serviceRequest); 
 
 		Response requestResponse = serviceRequest.send();
-		logger.finer(requestResponse.getBody());
+		logger.info(requestResponse.getBody());
 		return requestResponse.getBody();
 	}
 

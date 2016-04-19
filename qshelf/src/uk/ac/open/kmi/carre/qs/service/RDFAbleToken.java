@@ -12,7 +12,25 @@ public class RDFAbleToken extends Token {
 	
 	public static final String RDF_PREFIX = "http://carre.kmi.open.ac.uk/ontology/sensors.owl#";
 	private String user = "";
+	private String connection = "";
+	private String refreshToken = "";
 	
+	public String getConnection() {
+		return connection;
+	}
+
+	public void setConnection(String connection) {
+		this.connection = connection;
+	}
+
+	public String getRefreshToken() {
+		return refreshToken;
+	}
+
+	public void setRefreshToken(String refreshToken) {
+		this.refreshToken = refreshToken;
+	}
+
 	public RDFAbleToken(String token, String secret) {
 		super(token, secret);
 	}
