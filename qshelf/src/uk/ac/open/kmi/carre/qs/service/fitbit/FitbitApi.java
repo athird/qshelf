@@ -18,7 +18,7 @@ public class FitbitApi extends DefaultApi20 {
 		return FitbitService.authURL + "?client_id=" + config.getApiKey()
 				+ "&response_type=code"
 				+ "&redirect_uri=" + config.getCallback()
-				+ "&scope=ctivity heartrate nutrition profile sleep weight";
+				+ "&scope=activity heartrate nutrition profile sleep weight";
 	}
 
 }

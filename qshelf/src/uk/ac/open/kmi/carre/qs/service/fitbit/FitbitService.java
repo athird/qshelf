@@ -139,18 +139,50 @@ public class FitbitService extends Service {
 			Date date = cal.getTime();
 			List<Metric> newMetrics = new ArrayList<Metric>();
 			if (collectionType == null || collectionType.equals("")) {
-				newMetrics.addAll(getBody(date));
-				newMetrics.addAll(getFoods(date));
-				newMetrics.addAll(getActivities(date));
-				newMetrics.addAll(getSleeps(date));
+				try {
+					newMetrics.addAll(getBody(date));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				try {
+					newMetrics.addAll(getFoods(date));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				try {
+					newMetrics.addAll(getActivities(date));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				try {
+					newMetrics.addAll(getSleeps(date));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			} else if (collectionType.equals("foods")) {
-				newMetrics.addAll(getFoods(date));
+				try {
+					newMetrics.addAll(getFoods(date));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			} else if (collectionType.equals("activities")) {
-				newMetrics.addAll(getActivities(date));
+				try {
+					newMetrics.addAll(getActivities(date));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			} else if (collectionType.equals("body")) {
-				newMetrics.addAll(getBody(date));
+				try {
+					newMetrics.addAll(getBody(date));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			} else if (collectionType.equals("sleep")) {
-				newMetrics.addAll(getSleeps(date));
+				try {
+					newMetrics.addAll(getSleeps(date));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 			String rdf = "";
 			for (Metric metric : newMetrics) {
@@ -160,6 +192,7 @@ public class FitbitService extends Service {
 			accessToken = oldAccessToken;
 
 			logger.info(rdf);
+			
 			if (!rdf.equals("")) {
 				CarrePlatformConnector connector = new CarrePlatformConnector(propertiesLocation);
 				boolean success = true;
@@ -383,7 +416,7 @@ public class FitbitService extends Service {
 			BufferedReader br = new BufferedReader(new InputStreamReader(response));
 
 			JSONObject results = (JSONObject) JSONValue.parse(br);
-			
+
 			logger.info(results.toJSONString());
 			token = getOAuth2AccessToken(results, accessToken.getRefreshToken());
 			token.setUser(accessToken.getUser());
@@ -455,7 +488,7 @@ public class FitbitService extends Service {
 			Literal expiresLiteral = solution.getLiteral("expires");
 			Literal expiresAtLiteral = solution.getLiteral("expires_at");
 			Literal userLiteral = solution.getLiteral("user");
-			
+
 			Resource connectionResource = solution.getResource("connection");
 			if (tokenLiteral == null) {
 				logger.info("Token literal is null!");
@@ -488,7 +521,7 @@ public class FitbitService extends Service {
 			token.setUser(user);
 			Date expiresAtDate = null;
 			if (token.getExpiresAt() == null && !expiresAt.equals("")) {
-				
+
 
 				SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 				try {
@@ -551,12 +584,12 @@ public class FitbitService extends Service {
 				Calendar cal = Calendar.getInstance();
 				cal.add(Calendar.SECOND, Integer.parseInt(expires));
 				expiresAtDate = cal.getTime();
-				
+
 			} else {
 				expiresAtDate = token.getExpiresAt();
 			}
 			token.setExpiresAt(expiresAtDate);
-			
+
 			if (updating) {
 				connector.updateTripleObject(userId,  connection , "<" + CARREVocabulary.ACCESS_TOKEN_PREDICATE + ">", "\"" + token.getToken() + "\"" + CARREVocabulary.STRING_TYPE);
 				connector.updateTripleObject(userId,  connection , "<" + CARREVocabulary.EXPIRES_AT_PREDICATE + ">",  token.getRDFDate(token.getExpiresAt()));
@@ -584,7 +617,7 @@ public class FitbitService extends Service {
 				} 
 
 			}
-			
+
 			return token;
 		}
 		return null;
@@ -656,8 +689,8 @@ public class FitbitService extends Service {
 		List<Metric> allMetrics = new ArrayList<Metric>();
 		//DEPRECATED by Fitbit allMetrics.addAll(getBPs(startDate));
 		//DEPRECATED by Fitbit allMetrics.addAll(getPulses(startDate));
-		allMetrics.addAll(getWaters(startDate));
-		allMetrics.addAll(getFoods(startDate));
+		//allMetrics.addAll(getWaters(startDate));
+		//allMetrics.addAll(getFoods(startDate));
 		allMetrics.addAll(getFat(startDate));
 		//DEPRECATED by Fitbit allMetrics.addAll(getBody(startDate));
 		allMetrics.addAll(getWeight(startDate));

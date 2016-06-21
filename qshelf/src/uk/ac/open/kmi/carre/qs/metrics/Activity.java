@@ -39,7 +39,7 @@ public class Activity extends Metric {
 	protected String loggedActivityName;
 	protected String timezone;
 	protected float activityPoints;
-
+	
 	public float getActivityPoints() {
 		return activityPoints;
 	}

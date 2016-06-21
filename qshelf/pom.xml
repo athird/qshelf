@@ -133,16 +133,6 @@
   		<artifactId>xml-apis</artifactId>
   		<version>1.4.01</version>
   	</dependency>
-  	<dependency>
-  		<groupId>virtuoso.jdbc</groupId>
-  		<artifactId>virt_jdbc4</artifactId>
-  		<version>1.0</version>
-  	</dependency>
-  	<dependency>
-  		<groupId>virtuoso.jena</groupId>
-  		<artifactId>virt_jena2</artifactId>
-  		<version>1.0</version>
-  	</dependency>
   </dependencies>
   <repositories>
     <repository>

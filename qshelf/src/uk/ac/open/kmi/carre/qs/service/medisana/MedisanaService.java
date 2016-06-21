@@ -522,6 +522,7 @@ public class MedisanaService extends Service {
 
 				pulsem.setId(id);
 				pulsem.setPulse(pulse.longValue());
+				pulsem.setDate(date);
 
 				results.add(bloodpressure);  
 				results.add(pulsem);               
@@ -804,6 +805,7 @@ public class MedisanaService extends Service {
 				activity.setDate(date);
 
 				sleep.setId(id);
+				sleep.setDate(date);
 				sleep.setAsleepDuration(durationSleep.longValue());
 				sleep.setDeepSleepDuration(excellentSleepQualityDuration.longValue() + goodSleepQualityDuration.longValue());
 				sleep.setLightSleepDuration(mediumSleepQualityDuration.longValue());

@@ -84,9 +84,21 @@ public class QShelfSubscriptions extends HttpServlet {
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		String pathInfo = request.getPathInfo();
+		logger.info(request.getRemoteHost());
 		Service currentService = null;
 		logger.info("Received get request! pathInfo " + pathInfo);
-
+		if (pathInfo.contains("fitbit") && request.getParameter("verify") != null) {
+			String verificationCode = request.getParameter("verify");
+			String storedCode = Service.getProperty("verification_code", 
+					getServletContext().getRealPath("/WEB-INF/config.properties"), "fitbit");
+			if (!storedCode.equals(verificationCode)) {
+				response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+				logger.info("Verification code " + verificationCode + " didn't match " 
+				+ storedCode);
+				return;
+			}
+		}
+		
 		response.setStatus(HttpServletResponse.SC_NO_CONTENT);
 		logger.info("Sent NO_CONTENT status.");
 		try {
@@ -102,6 +114,7 @@ public class QShelfSubscriptions extends HttpServlet {
 				}
 			} 
 		} catch (Exception e) {
+			logger.info(e.getMessage());
 			e.printStackTrace();
 		} catch (Error e) {
 			e.printStackTrace();
