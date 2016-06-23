@@ -716,10 +716,10 @@ public abstract class Metric {
 						if (!externalUnitString.equals("")) {
 							String externalUnit = Metric.getUnitFor(externalUnitString);
 							if (!externalUnit.equals("")) {
-								unitTriple = valueObj + "<" + CARREVocabulary.EXTERNAL_UNIT_PREDICATE + "> <" + externalUnit + ">.\n";
+								unitTriple = valueObj + " <" + CARREVocabulary.EXTERNAL_UNIT_PREDICATE + "> <" + externalUnit + ">.\n";
 							}
 						}
-						typeTriple = valueObj + "<" + CARREVocabulary.EXTERNAL_TYPE_PREDICATE + "> <" + externalType + ">.\n";
+						typeTriple = valueObj + " <" + CARREVocabulary.EXTERNAL_TYPE_PREDICATE + "> <" + externalType + ">.\n";
 					}
 					rdf += triple + "\n"; 
 					if (!typeTriple.equals("")) {
