@@ -313,6 +313,7 @@ public class FitbitService extends Service {
 									expiresAtDate = format4.parse(simplifiedDate);
 								} catch (ParseException i) {
 									logger.info("Couldn't parse RDF date.");
+									expiresAtDate = Calendar.getInstance().getTime();
 								}
 							}
 						}
@@ -342,6 +343,7 @@ public class FitbitService extends Service {
 										expiresAtDate = format4.parse(simplifiedDate);
 									} catch (ParseException i) {
 										logger.info("Couldn't parse RDF date.");
+										expiresAtDate = Calendar.getInstance().getTime();
 									}
 								}
 							}
@@ -366,7 +368,12 @@ public class FitbitService extends Service {
 		}
 
 		Date today = Calendar.getInstance().getTime();
-		if (upgradingTokens || (token.getExpiresAt() == null ) || (token.getExpiresAt() != null && today.after(token.getExpiresAt()))) {
+		OAuth2AccessToken backup = accessToken;
+		accessToken = token;
+		String testApi = makeApiCall("profile", today);
+		accessToken = backup;
+		
+		if (testApi.contains("expired_token") || upgradingTokens || (token.getExpiresAt() == null ) || (token.getExpiresAt() != null && today.after(token.getExpiresAt()))) {
 			OAuth2AccessToken newToken = getOAuth2AccessToken( token);
 			logger.info("Retrieving new access token. ");
 			logger.info("token literal is " + newToken.getToken() + 
@@ -582,7 +589,7 @@ public class FitbitService extends Service {
 				}
 			} else if (token.getExpiresAt() == null){
 				Calendar cal = Calendar.getInstance();
-				cal.add(Calendar.SECOND, Integer.parseInt(expires));
+				cal.add(Calendar.SECOND, -1);//Integer.parseInt(expires));
 				expiresAtDate = cal.getTime();
 
 			} else {
@@ -598,7 +605,12 @@ public class FitbitService extends Service {
 				connector.updateTripleObject(userId, connection, "<" + CARREVocabulary.USER_ID_PREDICATE +">", "\"" + token.getUser() + "\"" + CARREVocabulary.STRING_TYPE);
 			} else {
 				Date today = Calendar.getInstance().getTime();
-				if ((token.getExpiresAt() == null ) || (token.getExpiresAt() != null && today.after(token.getExpiresAt()))) {
+				OAuth2AccessToken backup = accessToken;
+				accessToken = token;
+				String testApi = makeApiCall("profile", today);
+				accessToken = backup; 
+				
+				if ((testApi.contains("expired_token")) || (token.getExpiresAt() == null ) || (token.getExpiresAt() != null && today.after(token.getExpiresAt()))) {
 					OAuth2AccessToken newToken = getOAuth2AccessToken( token);
 					logger.info("Retrieving new access token. ");
 					logger.info("token literal is " + newToken.getToken() + 
@@ -1156,10 +1168,15 @@ public class FitbitService extends Service {
 		logger.info(reqURLS);
 
 		String dateString = DateFormatUtils.format(date, "yyyy-MM-dd",TimeZone.getTimeZone("UTC"));
-		OAuthRequest serviceRequest = new OAuthRequest(Verb.GET, baseURL 
-				//+ "/user/-/profile.json");
-				//+ "/user/-/activities/date/2014-06-05.json");
-				+ "/user/-/" + keyword + "/date/" + dateString + ".json");
+		OAuthRequest serviceRequest;
+		if (keyword.equals("profile")) {
+			serviceRequest = new OAuthRequest(Verb.GET, reqURLS);
+		} else {
+			serviceRequest = new OAuthRequest(Verb.GET, baseURL 
+					//+ "/user/-/profile.json");
+					//+ "/user/-/activities/date/2014-06-05.json");
+					+ "/user/-/" + keyword + "/date/" + dateString + ".json");
+		}
 		serviceRequest.addHeader("Authorization", "Bearer " + accessToken.getToken());
 		//service.signRequest(accessToken, serviceRequest); 
 		logger.info(serviceRequest.getUrl());
@@ -1167,7 +1184,9 @@ public class FitbitService extends Service {
 
 		Response requestResponse = serviceRequest.send();
 		logger.info(requestResponse.getBody());
+
 		return requestResponse.getBody();
+
 
 	}
 

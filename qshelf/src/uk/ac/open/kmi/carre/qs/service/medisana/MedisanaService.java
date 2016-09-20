@@ -291,6 +291,7 @@ public class MedisanaService extends Service {
 				.apiSecret(oauth_secret)
 				.signatureType(SignatureType.Header)
 				.callback("none")
+				.debug()
 				.build();
 			}
 			Date date;
@@ -549,7 +550,8 @@ public class MedisanaService extends Service {
 			for (int i = 0; i < size; i++) {
 
 				JSONObject jsonObject = (JSONObject) jsonArray.get(i);
-				Number glucoseValue = (Number) jsonObject.get("blood_glucose");
+				Number glucoseValue = (Number) jsonObject.get("bloodGlucose");//"blood_glucose");
+
 				String note = (String) jsonObject.get("note");
 				String id = (String) jsonObject.get("id");
 				Number measurementDate = (Number) jsonObject.get("measurementDate");
@@ -834,7 +836,9 @@ public class MedisanaService extends Service {
 		OAuthRequest serviceRequest = new OAuthRequest(Verb.GET, baseURL 
 				+ "/data/" + keyword + "/sync?start=1&max=10&date_since=" + dateString);
 
+		logger.info(serviceRequest.getCompleteUrl());
 		service.signRequest(accessToken, serviceRequest); 
+		logger.info(serviceRequest.getCompleteUrl());
 
 		Response requestResponse = serviceRequest.send();
 		logger.info(requestResponse.getBody());

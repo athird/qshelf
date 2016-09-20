@@ -89,6 +89,6 @@ PREFIX carreUsers: <https://carre.kmi.open.ac.uk/users/>
 	public static final String PLACE_HAS_FOURSQUARE_ID_PREDICATE = SENSOR_RDF_PREFIX + "has_foursquare_id";
 	
 	public static final String DEFAULT_USER_FOR_TESTING = "athird";
-	public static final String EXTERNAL_UNIT_PREDICATE = SENSOR_RDF_PREFIX + "has_external_unit";
-	public static final String EXTERNAL_TYPE_PREDICATE = SENSOR_RDF_PREFIX + "has_external_type";
+	public static final String EXTERNAL_UNIT_PREDICATE = CARRE_SENSORS_OWL + "has_external_unit";
+	public static final String EXTERNAL_TYPE_PREDICATE = CARRE_SENSORS_OWL + "has_external_type";
 	}

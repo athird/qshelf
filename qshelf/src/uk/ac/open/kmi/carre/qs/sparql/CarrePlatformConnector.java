@@ -148,7 +148,7 @@ public class CarrePlatformConnector {
 				query += "PREFIX " + prefix + "\n";
 			}
 			query += "\n";
-			query += "INSERT IN <" + CARREVocabulary.USER_URL + user + "> {\n" + triples + "}";
+			query += "WITH <" + CARREVocabulary.USER_URL + user + "> INSERT {\n" + triples + "}";
 			logger.info(query);
 			VirtuosoUpdateRequest vur = VirtuosoUpdateFactory.create(query, set);
 			vur.exec();
@@ -166,7 +166,7 @@ public class CarrePlatformConnector {
 		VirtGraph set;
 		try {
 			set = new VirtGraph (endpoint, uname, upassw);
-			String query = "INSERT IN <" + CARREVocabulary.USER_URL + uname + "> {" + triple + "}";
+			String query = "WITH <" + CARREVocabulary.USER_URL + uname + "> INSERT {" + triple + "}";
 			VirtuosoUpdateRequest vur = VirtuosoUpdateFactory.create(query, set);
 			vur.exec();
 
@@ -200,7 +200,7 @@ public class CarrePlatformConnector {
 			VirtuosoUpdateRequest vur = VirtuosoUpdateFactory.create(query, set);
 			vur.exec();
 			query = "" + prefices;
-			query	+= "INSERT IN <" + CARREVocabulary.USER_URL + username + "> {\n"
+			query	+= "WITH <" + CARREVocabulary.USER_URL + username + "> INSERT {\n"
 					+ "<" + subject + "> " + predicate + " " + object + " }\n";
 			logger.info(query);
 			VirtuosoUpdateRequest vur2 = VirtuosoUpdateFactory.create(query, set);

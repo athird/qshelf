@@ -65,7 +65,7 @@ public abstract class Metric {
 		case "caloriesBMR":
 			return "http://purl.bioontology.org/ontology/LNC/LP35952-8"; // calories metabolised
 		case "caloriesMetabolised":
-			return "http://purl.bioontology.org/ontology/LNC/LP35952-8>"; // calories metabolised
+			return "http://purl.bioontology.org/ontology/LNC/LP35952-8"; // calories metabolised
 		case "activityCalories": 
 			return "http://purl.bioontology.org/ontology/LNC/LP35952-8"; // calories metabolised
 		case "marginalCalories":
@@ -107,7 +107,7 @@ public abstract class Metric {
 		case "chest":
 			return "http://purl.obolibrary.org/obo/CMO_0000316"; // chest value measurement 
 		case "forearm":
-			return "http://purl.obolibrary.org/obo/CMO_0000187>"; // forearm value measurement 
+			return "http://purl.obolibrary.org/obo/CMO_0000187"; // forearm value measurement 
 		case "hips":
 			return "http://purl.obolibrary.org/obo/CMO_0000014"; // hips value measurement
 		case "neck":
@@ -446,7 +446,7 @@ public abstract class Metric {
 		case "grams_unit":
 			return "http://purl.obolibrary.org/obo/UO_0000021";
 		case "liters_unit":
-			return "http://purl.obolibrary.org/obo/UO_0000099>";
+			return "http://purl.obolibrary.org/obo/UO_0000099";
 		case "count_per_minute_unit":
 			return "http://purl.obolibrary.org/obo/UO_0000148";
 		case "hba1c_unit": // observable expects a percentage?

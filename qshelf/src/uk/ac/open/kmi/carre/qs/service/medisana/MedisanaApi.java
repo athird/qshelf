@@ -4,7 +4,7 @@ package uk.ac.open.kmi.carre.qs.service.medisana;
 import org.apache.commons.lang.RandomStringUtils;
 import org.scribe.builder.api.DefaultApi10a;
 import org.scribe.model.Token;
-import org.scribe.services.HMACSha256SignatureService;
+import uk.ac.open.kmi.carre.qs.service.medisana.HMACSha256SignatureService;
 import org.scribe.services.SignatureService;
 import org.scribe.services.TimestampService;
 import org.scribe.services.TimestampServiceImpl;
